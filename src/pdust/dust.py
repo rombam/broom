@@ -8,9 +8,10 @@ from copy import deepcopy
 from pdust.utils import Printable
 from pdust.mesh import CGNS, Parametric, Pointwise
 from pdust.reference import Reference
+from pdust.solver import Settings
 
 @dataclass
-class DustGeom(Printable):
+class Geom(Printable):
     """DUST geometry class.
 
     Attributes
@@ -27,16 +28,17 @@ class DustGeom(Printable):
     geom: Union[CGNS, Parametric, Pointwise]
     ref: Reference = None
 
-class DustCase(Printable):
+class Case(Printable):
     """DUST simulation object.
 
     Attributes
     ----------
-    geoms : List[DustGeom]
-        List of geometries to be included in the simulation. DustGeom objects include
-        information about the mesh and reference system of each geometry.
-    
+    geoms : Geom, List[Geom]
+        Geometry or list of geometries to be included in the simulation. 
+        DustGeom objects include information about the mesh and reference system of each
+        geometry.
+    settings
 
     """
-    pass
-
+    geoms: Union[Geom, List[Geom]]
+    settings: Settings = Settings()
