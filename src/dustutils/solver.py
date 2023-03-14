@@ -120,7 +120,7 @@ class FlowOpts(Printable):
 
     """
     u_inf: Union[List[int, float, np.number], np.ndarray]
-    u_ref: Union[int, float, np.number] = np.linalg.norm(u_inf)
+    u_ref: Union[int, float, np.number] = u_inf
     gust: Gust = None
     p_inf: Union[int, float, np.number] = 101325.0
     a_inf: Union[int, float, np.number] = 340.0
@@ -176,18 +176,137 @@ class WakeOpts(Printable):
 
 @dataclass
 class ModelOpts(Printable):
-    pass
+    """Model numerical settings.
+
+    Attributes
+    ----------
+    far_field_ratio_doublet : int, float, np.number, optional
+        Ratio with respect to element length to set the thresholds for far field
+        approximation. When evaluating the influence of the doublets of an element, if the
+        evaluation point is distant more than far_field_ratio_doublet times the character-
+        istic length of the element, simplified cheaper far field approximated formulae
+        are emplozed instead of the standard ones. The characteristic length of the elem-
+        ent is taken as the maximum length of all the element edges.
+    far_field_ratio_source : int, float, np.number, optional
+        Threshold to use far field approximations, similarly to far_field_ratio_doublet.
+        Only applies to three dimensional surface panels.
+    doublet_threshold : int, float, np.number, optional
+        Distance threshold under which the evaluation point, with respect to a panel, is
+        considered inside the plane of the panel.
+    rankine_rad : int, float, np.number, optional
+        Parameter which sets the radius under which the Rankine approximation of vortexes 
+        cores is employed. Used for aerodynamic elements and panels (i.e. everything
+        except vortex particles).
+    vortex_rad : int, float, np.number, optional
+        Parameter which uniformly sets the radius of the vortex particles, only used if
+        k_vortex_rad is disabled.
+    k_vortex_rad : int, float, np.number, optional
+        Coefficient for the automatic computation of the radius of each vortex particle;
+        set a negative number to disable the feature and revert to uniform vortex radius.
+    cutoff_rad : int, float, np.number, optional
+        Parameter which sets the radius under which the vortexes interaction is completely
+        set to zero.
+    vortstretch : bool, optional
+        Calculate the evolution of vorticity of the particles considering the vortex
+        stretching.
+    vortstretch_from_elems : bool, optional
+        Compute also the contribution to the vortex stretching of the particles due to the
+        model elements.
+    diffusion : bool, optional
+        Calculate the evolution of vorticity of the particles considering the vorticity
+        diffusion.
+    turbulent_viscosity : bool, optional
+        Introduce additional turbulent viscosity (Smagorinsky style) to the vorticity di-
+        ffusion term. Working only when fmm is True. Experimental.
+    penetration_avoidance : bool, optional
+        Apply the penetration avoidance algorithm to avoid the penetration of particles
+        inside the solid bodies.
+    penetration_avoidance_check_radius : int, float, np.number, optional
+        Radius multiplication factor of the check radius. All the particles within a dis-
+        tance d ≤ PrUrefΔt from each element are checked for potential penetration, where 
+        Pr is the multiplication factor. A bigger factor minimizes the risk of penetration
+        of extremely fast particles, but affects the performance.
+    penetration_avoidance_element_radius : int, float, np.number, optional
+        Surface correction element radius multiplication factor. See DUST official docu-
+        mentation for more information.
+    divergence_filtering : bool, optional
+        Whether to employ the divergence filtering to keep the vorticity field divergence-
+        free.
+    filter_time_scale : int, float, np.number, optional
+        Timescale of the time filter to filter the divergence. The input is not the actual
+        timescale but the number of simulation timesteps of which the timescale is
+        consisting.
+
+    """
+    far_field_ratio_doublet: Union[int, float, np.number] = 10.0
+    far_field_ratio_source: Union[int, float, np.number] = 10.0
+    doublet_threshold: Union[int, float, np.number] = 1e-6
+    rankine_rad: Union[int, float, np.number] = 0.1
+    vortex_rad: Union[int, float, np.number] = 0.1
+    k_vortex_rad: Union[int, float, np.number] = 1.0
+    cutoff_rad: Union[int, float, np.number] = 0.001
+    vortstretch: bool = True
+    vortstretch_from_elems: bool = False
+    diffusion: bool = True
+    turbulent_viscosity: bool = False
+    penetration_avoidance: bool = False
+    penetration_avoidance_check_radius: Union[int, float, np.number] = 5.0
+    penetration_avoidance_element_radius: Union[int, float, np.number] = 1.5
+    divergence_filtering: bool = True
+    filter_time_scale: Union[int, float, np.number] = 40.0
+
 
 @dataclass
 class FMMOpts(Printable):
-    pass
+    """Fast multipole method (FMM) settings."""
+    fmm: bool
+    box_length: Union[int, float, np.number] = None
+    n_box: Union[List[int], np.ndarray] = None
+    octree_origin: Union[List[int, float, np.number], np.ndarray] = None
+    n_octree_levels: int = None
+    min_octree_part: int = None
+    multipole_degree: int = None
+    dynamic_layers: bool = False
+    nmax_octree_levels: int = None
+    leaves_time_ratio: Union[int, float, np.number] = None
+    fmm_panels: bool = False
+    viscosity_effects: bool = False
+    particles_redistribution: bool = False
+    particles_redistribution_ratio: Union[int, float, np.number] = 3.0
+    octree_level_solid: int = None
+    turbulent_viscosity: bool = False
+    hcas: bool = False
+    hcas_time: Union[int, float, np.number] = None
+    hcas_velocity: Union[List[int, float, np.number], np.ndarray]\
+        = None
+    refine_wake: bool = True
+    k_refine: int = 1
+
 
 @dataclass
 class LLOpts(Printable):
-    pass
+    """Lifting line model options."""
+    ll_solver: Literal['GammaMethod', 'AlphaMethod'] = 'GammaMethod'
+    ll_reynolds_corrections: bool = False
+    ll_max_iter: int = 100
+    ll_tol: Union[int, float, np.number] = 1e-6
+    ll_damp: Union[int, float, np.number] = 25.0
+    ll_stall_regularisation: bool = True
+    ll_stall_regularisation_nelems: int = 1
+    ll_stall_regularisation_niters: int = 1
+    ll_stall_regularisation_alpha_stall: Union[int, float, np.number] = 15.0
+    ll_loads_avl: bool = False
+    ll_artificial_viscosity: Union[int, float, np.number] = 0.0
+    ll_artificial_viscosity_adaptive: bool = False
+    ll_artificial_viscosity_adaptive_alpha: Union[int, float, np.number] = None
+    ll_artificial_viscosity_adaptive_dalpha: Union[int, float, np.number] = None
+
 
 @dataclass
 class VLMOpts(Printable):
+    """Vortex lattice model options."""
+    vl_tol: Union[int, float, np.number] = 1e-4
+    vl_relax: Union[int, float, np.number] = 0.3
     pass
 
 @dataclass
