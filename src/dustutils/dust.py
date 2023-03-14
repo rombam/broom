@@ -5,10 +5,10 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from pdust.utils import Printable
-from pdust.mesh import CGNS, Parametric, Pointwise
-from pdust.reference import Reference
-from pdust.solver import Settings
+from dustutils.utils import Printable
+from dustutils.mesh import CGNS, Parametric, Pointwise
+from dustutils.reference import Reference
+from dustutils.solver import Settings
 
 @dataclass
 class Geom(Printable):
