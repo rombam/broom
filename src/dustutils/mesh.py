@@ -19,7 +19,7 @@ class MeshSymmetry(Printable):
         and symmetry_point.
     symmetry_point : List[number], np.ndarray
         (3, ) Array containing the coordinates of the symmetry point.
-    symmetry_point : List[number], np.ndarray
+    symmetry_normal : List[number], np.ndarray
         (3, ) Array containing the coordinates of the symmetry plane normal vector.
 
     """
@@ -46,14 +46,14 @@ class MeshMirror(Printable):
         and symmetry_point.
     mirror_point : List[number], np.ndarray
         (3, ) Array containing the coordinates of the mirror point.
-    mirror_point : List[number], np.ndarray
+    mirror_normal : List[number], np.ndarray
         (3, ) Array containing the coordinates of the mirror plane normal vector.
 
     """
-    mesh_symmetry: bool = False
-    symmetry_point: Union[List[Union[int, float, np.number]], np.ndarray]\
+    mesh_mirror: bool = False
+    mirror_point: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.zeros(3)
-    symmetry_normal: Union[List[Union[int, float, np.number]], np.ndarray]\
+    mirror_normal: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.array([0.0, 1.0, 0.0])
 
 @dataclass
