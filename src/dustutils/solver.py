@@ -78,7 +78,7 @@ class TimeOpts(Printable):
     restart_file : str, Path, optional
         Path to restart file.
     reset_time : bool, optional
-        Whether to reset the time to tstart after a restart.   
+        Whether to reset the time to tstart after a restart.
 
     """
     tstart: Union[int, float, np.number]
@@ -90,12 +90,12 @@ class TimeOpts(Printable):
     restart_from_file: bool = False
     restart_file: Union[str, Path] = None
     reset_time: bool = False
-    
+
     def __post_init__(self):
         if self.dt:
             print(f'{self.dt = } is specified, ignoring {self.timesteps = }')
             self.timesteps = None
-    
+
 
 @dataclass
 class FlowOpts(Printable):
@@ -258,8 +258,76 @@ class ModelOpts(Printable):
 
 @dataclass
 class FMMOpts(Printable):
-    """Fast multipole method (FMM) settings."""
+    """Fast multipole method (FMM) settings.
+
+    Attributes
+    ----------
+    fmm : bool
+        Whether to use the fast multipole method for particles evolution.
+    fmm_panels : bool, optional
+        Whether to use the fast multipole method also on panels.
+    box_length : int, float, np.number, optional
+        Length of the level 1 cubic boxes composing the octree.
+    n_box : List[int], np.ndarray, optional
+        (3, ) Number of base level 1 cubic boxes in each spatial direction.
+    octree_origin : List[int, float, np.number], np.ndarray, optional
+        (3, ) Origin of the octree. Starting from the origin, the octree extends in each
+        direction of n_box times box_length.
+    n_octree_levels : int, optional
+        Number of levels in which the base boxes are divided. At each level the upper
+        level boxes are divided into eight half sized boxes.
+    min_octree_part : int, optional
+        Minimum number of particles contained in an octree box in order to consider it a
+        leaf (lowest level box). If not enough particles are contained in a box, the box
+        is not considered and the particles are gathered at the higher level parent box.
+    multipole_degree : int, optional
+        Degree of the expansions in the multipole method.
+    dynamic_layers : bool, optional
+        Use dynamic octree layers, i.e. a further division layer in the octree is added
+        everytime the time spent in the particle to particle calculations is greater than
+        the one spent in the fast multipole part.
+    nmax_octree_levels : int, optional
+        Maximum number of divisions allowed during dynamic layers. The number of starting
+        layers is still n_octree_levels, which however might increase during the simula-
+        tion, but are always kept under a maximum number.
+    leaves_time_ratio : int, float, np.number, optional
+        Ratio between the time spent in the particle to particle computations in the lea-
+        ves of the octree with respect to the rest of the fast multipole computations that
+        triggers the increase of the octree levels.
+    viscosity_effects : bool, optional
+        Whether to take into account viscosity effects on the geometry surface, enabling
+        the release of vortex particles from different points on the geometry surface.
+        Experimental feature.
+    particles_redistribution : bool, optional
+        Redistribute the particles having a small intensity to the neighboring ones. Acti-
+        ve only if fmm is True. Redistributed particles are then erased to reduce the tot-
+        al number of particles.
+    particles_redistribution_ratio : int, float, np.number, optional
+        Ratio that controls the intensity threshold for particle redistribution. Refer to
+        DUST documentation for more information.
+    octree_level_solid : int, optional
+        Controls the resolution of the octree levels containing solid boundaries when
+        marking them as solid. Refer to DUST documentation for more information.
+    turbulent_viscosity : bool, optional
+        Employ an additional turbuleent viscosity, using a Smagorinsky-like model to take
+        into account the dissipation of energy in turbulent conditions towards small, not
+        resolved turbulent scales. Only applicable if fmm is True.
+    hcas : bool, optional
+        Hover Convergence Augmentation System. Refer to DUST documentation for more infor-
+        mation.
+    hcas_time : int, float, np.number, optional
+        Duration of HCAS application. Units: seconds.
+    hcas_velocity : List[int, float, np.number], np.ndarray
+        Velocity to apply to the particles during the HCAS use.
+    refine_wake : bool, optional
+        Allow splitting the wake panel into subparticles with a division that is sub-mul-
+        tiple of the shortest panel edge.
+    k_refine : int, optional
+        Number of subdivision of the shortest panel edge if refine_wake is True.
+
+    """
     fmm: bool
+    fmm_panels: bool = False
     box_length: Union[int, float, np.number] = None
     n_box: Union[List[int], np.ndarray] = None
     octree_origin: Union[List[int, float, np.number], np.ndarray] = None
@@ -269,7 +337,6 @@ class FMMOpts(Printable):
     dynamic_layers: bool = False
     nmax_octree_levels: int = None
     leaves_time_ratio: Union[int, float, np.number] = None
-    fmm_panels: bool = False
     viscosity_effects: bool = False
     particles_redistribution: bool = False
     particles_redistribution_ratio: Union[int, float, np.number] = 3.0
@@ -285,7 +352,61 @@ class FMMOpts(Printable):
 
 @dataclass
 class LLOpts(Printable):
-    """Lifting line model options."""
+    """Lifting line model options.
+
+    Attributes
+    ----------
+    ll_solver : str, optional
+        Lifting line solver to be employed. Can be GammaMethod or AlphaMethod. Refer to
+        DUST documentation for more information.
+    ll_reynolds_corrections : bool, optional
+        Employ a Reynolds number correction to obtain an extrapolation of the lifting li-
+        ne tables at the simulation conditions Reynolds number if different than the ones
+        provided in the lookup table.
+    ll_reynolds_corrections_nfact : int, float, np.number, optional
+        Power law exponent of the Reynolds correction extrapolation formula. Check the
+        DUST documentation for more information.
+    ll_max_iter : int, optional
+        Number of iterations of the fixed point non-linear solver used to obtain the lift-
+        ing lines solution.
+    ll_tol : int, float, np.number, optional
+        Relative tolerance at which the fixed point lifting linse solver stops.
+    ll_damp : int, float, np.number, optional
+        Value of the damping coefficient employed during fixed point iterations, to sup-
+        press possible oscillations.
+    ll_stall_regularisation : bool, optional
+        Avoid certain elements converging to a stalled state during the first timesteps of
+        a simulation while the rest are not stalled. Refer to the DUST documentation for
+        more information.
+    ll_stall_regularisation_nelems : int, optional
+        Number of lifting line elements to correct in case of isolated stall among non
+        stalled elements. Cannot be higher than 1 at the moment.
+    ll_stall_regularisation_niters : int, optional
+        Number of lifting line iterations between two regularisation processes.
+    ll_stall_regularisation_alpha_stall : int, float, np.number, optional
+        Stall angle used as a threshold for regularisation process. Units: degrees.
+    ll_loads_avl : bool, optional
+        Use AVL expression for the inviscid load contributions of lifting line elements,
+        in the same way of load computation used for vortex lattice elements.
+    ll_artificial_viscosity: int, float, np.number, optional
+        Artificial viscosity used to spatially regularize the solution with a gaussian
+        kernel, to be used if ll_solver = 'AlphaMethod' to regularize post-stall situa-
+        tions. Refer to DUST documentation for more information.
+    ll_artificial_viscosity_adaptive : bool, optional
+        Whether to use an adaptive strategy to introduce artificial viscosity for regular-
+        ization, in order to regularize post stall configuration while not influencing non
+        stalled configurations.
+    ll_artificial_viscosity_adaptive_alpha : int, float, np.number, optional
+        Angle of attack after which the full artificial viscosity is introduced, thus
+        after which the maximum regularization is operated. Should be set around or over
+        the stall angle. Only applicable if ll_artificial_viscosity_adaptive is True.
+        Units: degrees.
+    ll_artificial_viscosity_adaptive_dalpha : int, float, np.number, optional
+        Angle of attack range before ll_artificial_viscosity_adaptive_alpha where the
+        artificial viscosity is gradually introduced from zero to the maximum value set in
+        ll_artificial_viscosity.
+
+    """
     ll_solver: Literal['GammaMethod', 'AlphaMethod'] = 'GammaMethod'
     ll_reynolds_corrections: bool = False
     ll_max_iter: int = 100
@@ -304,10 +425,42 @@ class LLOpts(Printable):
 
 @dataclass
 class VLMOpts(Printable):
-    """Vortex lattice model options."""
+    """Vortex lattice model options.
+
+    Attributes
+    ----------
+    vl_tol : int, float, np.number, optional
+        Tolerance for the absolute error on lift coefficient in fixed point iteration
+        for corrected vortex lattice.
+    vl_relax : int, float, np.number, optional
+        Constant relaxation factor for RHS update.
+    aitken_relaxation : bool, optional
+        Activate the Aitken acceleration and stabilization method involved during the
+        vortex lattice fixed point iterations. The initial relaxation is the one set in
+        vl_relax.
+    vl_maxiter : int, optional
+        Maximum number of iterations for the correction of the vortex lattice.
+    vl_start_step : int, optional
+        Time step at which the vortex lattice correction starts.
+    vl_dynstall : bool, optional
+        Activate the Boeing dynamic stall correction for the vortex lattice. Experimental.
+    vl_average : bool, optional
+        Activate the averaging of the vortex lattice correction over a number of time
+        steps, set in vl_average_iter. This may further stabilize the solution in case of
+        stalled conditions.
+    vl_average_iter : int, optional
+        Number of time steps over which the vortex lattice correction is averaged.
+
+    """
     vl_tol: Union[int, float, np.number] = 1e-4
     vl_relax: Union[int, float, np.number] = 0.3
-    pass
+    aitken_relaxation: bool = True
+    vl_maxiter: int = 100
+    vl_start_step: int = 1
+    vl_dynstall: bool = False
+    vl_average: bool = False
+    vl_average_iter: int = 10
+
 
 @dataclass
 class Settings(Printable):
