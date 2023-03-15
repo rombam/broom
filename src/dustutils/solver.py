@@ -13,7 +13,7 @@ class Gust(Printable):
 
     Attributes
     ----------
-    gust_type : Literal['ACM', 'linear']
+    gust_type : str
         Type of gust.
     gust_origin : List[int, float, np.number], np.ndarray
         (3, ) Position of the point whose airstream velocity is being computed.
@@ -34,11 +34,11 @@ class Gust(Printable):
 
     """
     gust_type: Literal['ACM', 'linear']
-    gust_origin: Union[List[int, float, np.number], np.ndarray]
-    gust_front_direction: Union[List[int, float, np.number], np.ndarray]
+    gust_origin: Union[List[Union[int, float, np.number]], np.ndarray]
+    gust_front_direction: Union[List[Union[int, float, np.number]], np.ndarray]
     gust_front_speed: Union[int, float, np.number]
     gust_u_des: Union[int, float, np.number]
-    gust_perturbation_direction: Union[List[int, float, np.number], np.ndarray]\
+    gust_perturbation_direction: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.array([0.0, 0.0, 1.0])
     gust_gradient: Union[int, float, np.number] = 1.0
     gust_start_time: Union[int, float, np.number] = 0.0
@@ -106,7 +106,8 @@ class FlowOpts(Printable):
     u_inf : List[int, float, np.number], np.ndarray
         (3, ) Freestream velocity vector. Units: m/s.
     u_ref : int, float, np.number, optional
-        Reference velocity. Units: m/s.
+        Reference velocity. By default is None and the solver will assume u_ref = u_inf.
+        Units: m/s.
     gust : pdust.gust.Gust, optional
         Gust object.
     p_inf : int, float, np.number, optional
@@ -119,8 +120,8 @@ class FlowOpts(Printable):
         Freestream density. Units: kg/m^3.
 
     """
-    u_inf: Union[List[int, float, np.number], np.ndarray]
-    u_ref: Union[int, float, np.number] = u_inf
+    u_inf: Union[List[Union[int, float, np.number]], np.ndarray]
+    u_ref: Union[int, float, np.number] = None
     gust: Gust = None
     p_inf: Union[int, float, np.number] = 101325.0
     a_inf: Union[int, float, np.number] = 340.0
@@ -162,14 +163,14 @@ class WakeOpts(Printable):
     """
     n_wake_panels: int = 1
     n_wake_particles: int = 10000
-    particles_box_min: Union[List[int, float, np.number], np.ndarray]\
+    particles_box_min: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.array([-10.0, -10.0, -10.0])
-    particles_box_max: Union[List[int, float, np.number], np.ndarray]\
+    particles_box_max: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.array([10.0, 10.0, 10.0])
     implicit_panel_scale: Union[int, float, np.number] = 0.3
     implicit_panel_min_vel: Union[int, float, np.number] = 1e-8
     rigid_wake: bool = False
-    rigid_wake_vel: Union[List[int, float, np.number], np.ndarray]\
+    rigid_wake_vel: Union[List[Union[int, float, np.number]], np.ndarray]\
         = None
     join_te: bool = False
     join_te_factor: Union[int, float, np.number] = 1.0
@@ -330,7 +331,7 @@ class FMMOpts(Printable):
     fmm_panels: bool = False
     box_length: Union[int, float, np.number] = None
     n_box: Union[List[int], np.ndarray] = None
-    octree_origin: Union[List[int, float, np.number], np.ndarray] = None
+    octree_origin: Union[List[Union[int, float, np.number]], np.ndarray] = None
     n_octree_levels: int = None
     min_octree_part: int = None
     multipole_degree: int = None
@@ -344,7 +345,7 @@ class FMMOpts(Printable):
     turbulent_viscosity: bool = False
     hcas: bool = False
     hcas_time: Union[int, float, np.number] = None
-    hcas_velocity: Union[List[int, float, np.number], np.ndarray]\
+    hcas_velocity: Union[List[Union[int, float, np.number]], np.ndarray]\
         = None
     refine_wake: bool = True
     k_refine: int = 1
@@ -470,14 +471,16 @@ class Settings(Printable):
     ----------
     time : pdust.dust.TimeOpts
         Time settings.
-    flow : pdust.dust.FlowOpts, optional
+    flow : pdust.dust.FlowOpts
         Flow settings.
+    fmm : pdust.dust.FMMOpts, optional
+        Fast multipole method settings.
+        NOTE: if not specified, fmm will not be used, in contrast to the regular DUST
+        logic. This is for ease of implementation and may change.
     wake : pdust.dust.WakeOpts, optional
         Wake settings.
     model : pdust.dust.ModelOpts, optional
         Model settings.
-    fmm : pdust.dust.FMMOpts, optional
-        Fast multipole method settings.
     liftl : pdust.dust.LLOpts, optional
         Lifting line settings.
     vlm : pdust.dust.VLMOpts, optional
@@ -486,8 +489,8 @@ class Settings(Printable):
     """
     time: TimeOpts
     flow: FlowOpts
-    wake: WakeOpts
-    model: ModelOpts
-    fmm: FMMOpts
-    liftl: LLOpts
-    vlm: VLMOpts
+    fmm: FMMOpts = FMMOpts(fmm=False)
+    wake: WakeOpts = WakeOpts()
+    model: ModelOpts = ModelOpts()
+    liftl: LLOpts = LLOpts()
+    vlm: VLMOpts = VLMOpts()
