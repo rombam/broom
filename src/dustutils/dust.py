@@ -22,11 +22,14 @@ class Geom(Printable):
         Geometry mesh object.
     ref : pdust.reference.Reference, optional
         Reference frame object. If None, will use the default global reference frame.
+    save_name : str, optional
+        Name of the geometry file to be saved. If None, will use the component name.
 
     """
     comp_name: str
     geom: Union[CGNS, Parametric, Pointwise]
     ref: Reference = None
+    save_name: str = None
 
     def to_fort(self):
         """Modified to_fort superclass method.
@@ -34,11 +37,33 @@ class Geom(Printable):
         Returns
         -------
         dict : dict
-            Dictionary containing the geometry and reference frame Fortran string repre-
-            sentations.
+            Dictionary containing the preprocessing, geometry and reference frame Fortran
+            string representations.
 
         """
-        return {'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
+        if not self.save_name:
+            save_name = self.comp_name
+        else:
+            save_name = self.save_name
+
+        pre_string = '\n'.join([f'comp_name = {self.comp_name}',
+                                f'geo_file = {save_name}.in',
+                                f'ref_tag={self.ref.ref_tag}'])
+
+        return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
+
+@dataclass
+class Analysis(Printable):
+    """DUST postprocessing analysis."""
+    type: Literal['viz', 'integral_loads', 'hinge_loads', ]
+
+
+@dataclass
+class Post(Printable):
+    """DUST postprocessing class."""
+    data_basename: Union[str, Path]
+    basename: Union[str, Path]
+    analyses: List[Analysis]
 
 @dataclass
 class Case(Printable):
@@ -71,6 +96,8 @@ class Case(Printable):
             ings and postprocessing settings Fortran string representations.
 
         """
+        pre = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms])
         geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
         ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
-        return {'geom': geom_dict, 'ref': ref_str, 'settings': self.settings.to_fort()}
+        return {'pre': pre, 'geom': geom_dict,
+                'ref': ref_str, 'settings': self.settings.to_fort()}
