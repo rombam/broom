@@ -71,5 +71,6 @@ class Case(Printable):
             ings and postprocessing settings Fortran string representations.
 
         """
-        geoms = {}
-        return {'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
+        geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
+        ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
+        return {'geom': geom_dict, 'ref': ref_str, 'settings': self.settings.to_fort()}
