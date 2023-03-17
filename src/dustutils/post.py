@@ -31,6 +31,8 @@ class Viz(PrintAnalysis):
         First result to be visualized.
     end_res : int
         Last result to be visualized.
+    variable : str, list
+        Variable(s) to be visualized.
     step_res : int, optional
         Step between results to be visualized. Default is 1.
     format : str, optional
@@ -41,8 +43,6 @@ class Viz(PrintAnalysis):
         If True, will average the results. Default is False.
     avg_res : int, optional
         Number of results to be averaged. Default is None.
-    variable : str, list
-        Variable(s) to be visualized. Default is 'vorticity'.
     component : str, list, optional
         Name(s) of the component(s) to be postprocessed. Default is 'all'.
 
@@ -50,15 +50,15 @@ class Viz(PrintAnalysis):
     name: str
     start_res: int
     end_res: int
+    variable: Union[Literal['vorticity', 'vorticity_vector', 'velocity',
+                            'surface_velocity', 'pressure', 'cp', 'turbulent_viscosity',
+                            'vortex_rad'],
+                    List[str]]
     step_res: int = 1
     format: Literal['vtk', 'tecplot'] = 'vtk'
     wake: bool = True
     average: bool = False
     avg_res: int = None
-    variable: Union[Literal['vorticity', 'vorticity_vector', 'velocity',
-                            'surface_velocity', 'pressure', 'cp', 'turbulent_viscosity',
-                            'vortex_rad'],
-                    List[str]]
     component: Union[str, List[str]] = 'all'
 
     def __post_init__(self):
