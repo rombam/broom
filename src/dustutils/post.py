@@ -68,7 +68,7 @@ class Viz(PrintAnalysis):
                          for i in range(len(attlist))}
 
 @dataclass
-class IntLoads(PrintAnalysis):
+class Integral(PrintAnalysis):
     """Integral loads analysis.
 
     Attributes
@@ -114,7 +114,7 @@ class IntLoads(PrintAnalysis):
 
 
 @dataclass
-class HingeLoads(PrintAnalysis):
+class Hinge(PrintAnalysis):
     """Hinge loads analysis."""
     pass
 
@@ -155,5 +155,5 @@ class Post(Printable):
     """
     data_basename: Union[str, Path]
     basename: Union[str, Path]
-    analyses: List[Union[Viz, IntLoads, HingeLoads, Probe, FlowField, Sectional,
+    analyses: List[Union[Viz, Integral, Hinge, Probe, FlowField, Sectional,
                          Chordwise]]
