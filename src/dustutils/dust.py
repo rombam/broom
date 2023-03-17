@@ -148,8 +148,8 @@ class Case(Printable):
         os.makedirs(folder, exist_ok=True)
 
         # Create subdirectories
-        res_folder = Path(res_name).parent if Path(res_name).parent is not '.' else ''
-        post_folder = Path(post_name).parent if Path(post_name).parent is not '.' else ''
+        res_folder = Path(res_name).parent if Path(res_name).parent != '.' else ''
+        post_folder = Path(post_name).parent if Path(post_name).parent != '.' else ''
         res_name = Path.joinpath(folder, res_folder)
         post_name = Path.joinpath(folder, post_folder)
         os.makedirs(res_name, exist_ok=True)
