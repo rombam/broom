@@ -79,9 +79,13 @@ class Printable:
                     if isinstance(v, Printable):
                         fort_strs.append('')
                         fort_strs.extend(v._fort_strs())
-                    elif isinstance(v, list) and isinstance(v[0], Printable):
-                        for val in v:
-                            fort_strs.extend(val._fort_strs())
+                    elif isinstance(v, list):
+                        if isinstance(v[0], Printable):
+                            for val in v:
+                                fort_strs.extend(val._fort_strs())
+                        elif isinstance(v[0], str):
+                            fort_strs.extend([f'{indent}{k} = {fortranslate(val)}'
+                                              for val in v])
                     else:
                         fort_strs.append(f'{indent}{k} = {fortranslate(v)}')
         return fort_strs
