@@ -1,14 +1,15 @@
-import numpy as np
+import os
 
-from dataclasses import dataclass, field
-from typing import List, Union, Literal
+from dataclasses import dataclass
+from typing import List, Union
 from pathlib import Path
-from copy import deepcopy
 
 from dustutils.utils import Printable
 from dustutils.mesh import CGNS, Parametric, Pointwise
 from dustutils.reference import Reference
 from dustutils.solver import Settings
+from dustutils.post import Post
+
 
 @dataclass
 class Geom(Printable):
@@ -48,22 +49,9 @@ class Geom(Printable):
 
         pre_string = '\n'.join([f'comp_name = {self.comp_name}',
                                 f'geo_file = {save_name}.in',
-                                f'ref_tag={self.ref.reference_tag}'])
+                                f'ref_tag = {self.ref.reference_tag}'])
 
         return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
-
-@dataclass
-class Analysis(Printable):
-    """DUST postprocessing analysis."""
-    type: Literal['viz', 'integral_loads', 'hinge_loads', ]
-
-
-@dataclass
-class Post(Printable):
-    """DUST postprocessing class."""
-    data_basename: Union[str, Path]
-    basename: Union[str, Path]
-    analyses: List[Analysis]
 
 @dataclass
 class Case(Printable):
@@ -71,6 +59,8 @@ class Case(Printable):
 
     Attributes
     ----------
+    name : str
+        Name of the simulation case.
     geoms : Geom, List[Geom]
         Geometry or list of geometries to be included in the simulation.
         DustGeom objects include information about the mesh and reference system of each
@@ -82,12 +72,27 @@ class Case(Printable):
         [WIP] Postprocessing settings object.
 
     """
+    name: str
     geoms: Union[Geom, List[Geom]]
     settings: Settings
     post: Post = None
 
-    def to_fort(self):
+    def to_fort(self, geom_name=None, res_name=None, post_name=None):
         """Modified to_fort superclass method.
+
+        Parameters
+        ----------
+        geom_name : str, optional
+            Name of the geometry file to be saved. If None, will use 'geo_input.h5'.
+            Should be relative to the case folder.
+        res_name : str, optional
+            Name of the results file to be saved. Should include the path and a preffix
+            for the results. If None, will use 'Output/<self.name>'.
+            Should be relative to the case folder.
+        post_name : str, optional
+            Name of the post-processed files to be saved. Should include the path and a
+            preffix for the results. If None, will use 'Postpro/<self.name>'.
+            Should be relative to the case folder.
 
         Returns
         -------
@@ -98,9 +103,69 @@ class Case(Printable):
         """
         if not isinstance(self.geoms, list):
             self.geoms = [self.geoms]
-        pre = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms])
+        if not geom_name:
+            geom_name = 'geo_input.h5'
+        if not res_name:
+            res_name = f'Output/{self.name}'
+        if not post_name:
+            post_name = f'Postpro/{self.name}'
+
+        pre_str = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms]
+                              + [f'file_name = {geom_name}'])
         geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
         ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
-        return {'pre': pre, 'geom': geom_dict,
-                'ref': ref_str, 'settings': self.settings.to_fort(),
-                'post': self.post.to_fort()}
+        set_str = self.settings.to_fort() + f'\n\ngeometry_file = {geom_name}'\
+            + '\n\nreference_file = references.in'
+        post_str = f'basename = {post_name}\n\ndata_basename = {res_name}'
+        return {'pre': pre_str, 'geom': geom_dict,
+                'ref': ref_str, 'settings': set_str,
+                'post': post_str}
+
+    def write_case(self, folder, geom_name=None, res_name=None, post_name=None):
+        """Write the DUST case files to the specified folder.
+
+        Parameters
+        ----------
+        folder : str, Path
+            Path to the folder where the case files will be written. The folder will be
+            created if it does not exist. Inside the folder, another folder named
+            self.name will be created and the case files will be written there.
+        geom_name : str, optional
+            Name of the geometry file to be saved. If None, will use 'geo_input.h5'.
+            Should be relative to the case folder.
+        res_name : str, optional
+            Name of the results file to be saved. Should include the path and a preffix
+            for the results. If None, will use 'Output/<self.name>'.
+            Should be relative to the case folder.
+        post_name : str, optional
+            Name of the post-processed files to be saved. Should include the path and a
+            preffix for the results. If None, will use 'Postpro/<self.name>'.
+            Should be relative to the case folder.
+
+        """
+        # Create base directory
+        folder = Path(folder)
+        os.makedirs(folder, exist_ok=True)
+
+        # Create subdirectories
+        res_folder = Path(res_name).parent if Path(res_name).parent is not '.' else ''
+        post_folder = Path(post_name).parent if Path(post_name).parent is not '.' else ''
+        res_name = Path.joinpath(folder, res_folder)
+        post_name = Path.joinpath(folder, post_folder)
+        os.makedirs(res_name, exist_ok=True)
+        os.makedirs(post_name, exist_ok=True)
+
+        # Write case files
+        str_dict = self.to_fort(geom_name=geom_name, res_name=res_name,
+                                post_name=post_name)
+        with open(Path.joinpath(folder, 'dust_pre.in'), 'w+') as f:
+            f.writelines(str_dict['pre'])
+        with open(Path.joinpath(folder, 'dust.in'), 'w+') as f:
+            f.writelines(str_dict['settings'])
+        with open(Path.joinpath(folder, 'dust_post.in'), 'w+') as f:
+            f.writelines(str_dict['post'])
+        with open(Path.joinpath(folder, 'references.in'), 'w+') as f:
+            f.writelines(str_dict['ref'])
+        for geom in str_dict['geom'].keys():
+            with open(Path.joinpath(folder, f'{geom}.in'), 'w+') as f:
+                f.writelines(str_dict['geom'][geom])
