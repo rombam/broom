@@ -7,7 +7,14 @@ from dustutils.utils import Printable
 
 @dataclass
 class PrintAnalysis(Printable):
-    """Printable analysis helper class."""
+    """Printable analysis helper class.
+
+    Attributes
+    ----------
+    type : str, optional
+        Type of the analysis. Meant to be defined by the subclasses.
+
+    """
     type: Literal['viz', 'integral_loads', 'hinge_loads'] = None
 
     def _fort_strs(self, ignore=[], indent=4):
