@@ -49,14 +49,17 @@ class Printable:
     def to_fort(self, ignore=[], indent=0):
         """Return a Fortran-formatted class string.
 
-        Returns
-        -------
-        fort_str : str
-            Fortran-formatted list of strings.
+        Parameters
+        ----------
         ignore : str, List[str], optional
             Name or list of attribute names to be ignored for printing.
         indent : int, optional
             Number of spaces to indent each string line by.
+
+        Returns
+        -------
+        fort_str : str
+            Fortran-formatted list of strings.
 
         TODO: clean this up. ignore and indent are not needed in to_fort, just in
         _fort_strs.
@@ -70,6 +73,21 @@ class Printable:
         return indent*" "+connector.join(fort_strs)
 
     def _fort_strs(self, ignore=[], indent=0):
+        """Return a list of Fortran-formatted strings for all the class attributes.
+
+        Parameters
+        ----------
+        ignore : str, List[str], optional
+            Name or list of attribute names to be ignored for printing.
+        indent : int, optional
+            Number of spaces to indent each string line by.
+
+        Returns
+        -------
+        fort_strs : List[str]
+            List of Fortran-formatted strings.
+
+        """
         indent = f'{indent*" "}'
         fort_strs = []
         clsdict = self.__dict__
