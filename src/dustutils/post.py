@@ -8,13 +8,42 @@ from copy import deepcopy
 from dustutils.utils import Printable
 
 @dataclass
-class Analysis(Printable):
-    """DUST postprocessing analysis."""
-    type: Literal['viz', 'integral_loads', 'hinge_loads']
+class PrintAnalysis(Printable):
+    """Printable analysis helper class."""
+    type: Literal['viz', 'integral_loads', 'hinge_loads'] = None
+
+    def _fort_strs(self, ignore=[], indent=4):
+        return ['\nanalysis = {'] + super()._fort_strs(ignore=ignore, indent=indent)\
+               + ['}']
 
 @dataclass
-class Viz(Printable):
-    """A visualization analysis."""
+class Viz(PrintAnalysis):
+    """Visualization analysis.
+
+    Attributes
+    ----------
+    name : str
+        Name of the analyis, will be appended as a suffix to the basename.
+    start_res : int
+        First result to be visualized.
+    end_res : int
+        Last result to be visualized.
+    step_res : int, optional
+        Step between results to be visualized. Default is 1.
+    format : str, optional
+        Format of the output file. Default is 'vtk'.
+    wake : bool, optional
+        If True, will include the wake in the postprocessing. Default is True.
+    average : bool, optional
+        If True, will average the results. Default is False.
+    avg_res : int, optional
+        Number of results to be averaged. Default is None.
+    variable : str, list
+        Variable(s) to be visualized. Default is 'vorticity'.
+    component : str, list, optional
+        Name(s) of the component(s) to be postprocessed. Default is 'all'.
+
+    """
     name: str
     start_res: int
     end_res: int
@@ -24,7 +53,7 @@ class Viz(Printable):
     average: bool = False
     avg_res: int = None
     variable: Union[Literal['vorticity', 'vorticity_vector', 'velocity',
-                            'surface_velocity','pressure', 'cp', 'turbulent_viscosity',
+                            'surface_velocity', 'pressure', 'cp', 'turbulent_viscosity',
                             'vortex_rad'],
                     List[str]]
     component: Union[str, List[str]] = 'all'
@@ -41,8 +70,30 @@ class Viz(Printable):
                          for i in range(len(attlist))}
 
 @dataclass
-class IntLoads(Printable):
-    """A visualization analysis."""
+class IntLoads(PrintAnalysis):
+    """Integral loads analysis.
+
+    Attributes
+    ----------
+    name : str
+        Name of the analyis, will be appended as a suffix to the basename.
+    start_res : int
+        First result to be visualized.
+    end_res : int
+        Last result to be visualized.
+    step_res : int, optional
+        Step between results to be visualized. Default is 1.
+    format : str, optional
+        Format of the output file. Default is 'dat'.
+    average : bool, optional
+        If True, will average the results. Default is False.
+    component : str, list, optional
+        Name(s) of the component(s) to be postprocessed. Default is 'all'.
+    reference_tag : str, optional
+        Tag of the reference frame to compute the loads in. Default is '0', which corres-
+        ponds to the global reference frame.
+
+    """
     name: str
     start_res: int
     end_res: int
@@ -62,31 +113,35 @@ class IntLoads(Printable):
         self.type = 'integral_loads'
         self.__dict__ = {attlist[i]: self.__dict__[attlist[i]]
                          for i in range(len(attlist))}
+
+    def _fort_strs(self, ignore=[], indent=4):
+        return ['\nanalysis = {'] + super()._fort_strs(ignore=ignore, indent=indent)\
+               + ['}']
+
+@dataclass
+class HingeLoads(PrintAnalysis):
+    """Hinge loads analysis."""
+    pass
+
+
+@dataclass
+class Probe(PrintAnalysis):
+    """Probe analysis."""
     pass
 
 @dataclass
-class HingeLoads(Printable):
-    """A visualization analysis."""
+class FlowField(PrintAnalysis):
+    """Flow analysis."""
     pass
 
 @dataclass
-class Probe(Printable):
-    """A visualization analysis."""
+class Sectional(PrintAnalysis):
+    """Sectional loads analysis."""
     pass
 
 @dataclass
-class FlowField(Printable):
-    """A visualization analysis."""
-    pass
-
-@dataclass
-class Sectional(Printable):
-    """A visualization analysis."""
-    pass
-
-@dataclass
-class Chordwise(Printable):
-    """A visualization analysis."""
+class Chordwise(PrintAnalysis):
+    """Chordwise loads analysis."""
     pass
 
 @dataclass
