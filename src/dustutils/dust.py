@@ -48,7 +48,7 @@ class Geom(Printable):
 
         pre_string = '\n'.join([f'comp_name = {self.comp_name}',
                                 f'geo_file = {save_name}.in',
-                                f'ref_tag={self.ref.ref_tag}'])
+                                f'ref_tag={self.ref.reference_tag}'])
 
         return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
 
@@ -78,13 +78,13 @@ class Case(Printable):
     settings : Settings
         Settings object containing the simulation settings and solver options.
         TODO: implement settings templates to make it easier for users.
-    post : Postpro, optional
-        [WIP] Postprocessing settings object. Not yet implemented.
+    post : Post, optional
+        [WIP] Postprocessing settings object.
 
     """
     geoms: Union[Geom, List[Geom]]
     settings: Settings
-    post: None
+    post: Post = None
 
     def to_fort(self):
         """Modified to_fort superclass method.
@@ -96,8 +96,11 @@ class Case(Printable):
             ings and postprocessing settings Fortran string representations.
 
         """
+        if not isinstance(self.geoms, list):
+            self.geoms = [self.geoms]
         pre = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms])
         geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
         ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
         return {'pre': pre, 'geom': geom_dict,
-                'ref': ref_str, 'settings': self.settings.to_fort()}
+                'ref': ref_str, 'settings': self.settings.to_fort(),
+                'post': self.post.to_fort()}
