@@ -9,14 +9,12 @@ from dustutils.utils import Printable
 class PrintAnalysis(Printable):
     """Printable analysis helper class.
 
-    Attributes
-    ----------
-    type : str, optional
-        Type of the analysis. Meant to be defined by the subclasses.
+    Note
+    ----
+    The sole purpose of this class is to modify the to_fort method of the Printable class
+    for the analysis classes.
 
     """
-    type: Literal['viz', 'integral_loads', 'hinge_loads'] = None
-
     def _fort_strs(self, ignore=[], indent=4):
         return ['\nanalysis = {'] + super()._fort_strs(ignore=ignore, indent=indent)\
                + ['}']
