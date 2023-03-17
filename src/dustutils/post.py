@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from dustutils.utils import Printable
 
+
 @dataclass
 class PrintAnalysis(Printable):
     """Printable analysis helper class.
@@ -18,6 +19,7 @@ class PrintAnalysis(Printable):
     def _fort_strs(self, ignore=[], indent=4):
         return ['\nanalysis = {'] + super()._fort_strs(ignore=ignore, indent=indent)\
                + ['}']
+
 
 @dataclass
 class Viz(PrintAnalysis):
@@ -71,6 +73,7 @@ class Viz(PrintAnalysis):
         self.type = 'viz'
         self.__dict__ = {attlist[i]: self.__dict__[attlist[i]]
                          for i in range(len(attlist))}
+
 
 @dataclass
 class Integral(PrintAnalysis):
@@ -129,20 +132,24 @@ class Probe(PrintAnalysis):
     """Probe analysis."""
     pass
 
+
 @dataclass
 class FlowField(PrintAnalysis):
     """Flow analysis."""
     pass
+
 
 @dataclass
 class Sectional(PrintAnalysis):
     """Sectional loads analysis."""
     pass
 
+
 @dataclass
 class Chordwise(PrintAnalysis):
     """Chordwise loads analysis."""
     pass
+
 
 @dataclass
 class Post(Printable):
