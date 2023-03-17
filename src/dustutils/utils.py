@@ -104,6 +104,8 @@ class Printable:
                         elif isinstance(v[0], str):
                             fort_strs.extend([f'{indent}{k} = {fortranslate(val)}'
                                               for val in v])
+                        else:
+                            fort_strs.append(f'{indent}{k} = {fortranslate(v)}')
                     else:
                         fort_strs.append(f'{indent}{k} = {fortranslate(v)}')
         return fort_strs
