@@ -1,6 +1,4 @@
-import numpy as np
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
@@ -114,9 +112,6 @@ class IntLoads(PrintAnalysis):
         self.__dict__ = {attlist[i]: self.__dict__[attlist[i]]
                          for i in range(len(attlist))}
 
-    def _fort_strs(self, ignore=[], indent=4):
-        return ['\nanalysis = {'] + super()._fort_strs(ignore=ignore, indent=indent)\
-               + ['}']
 
 @dataclass
 class HingeLoads(PrintAnalysis):
