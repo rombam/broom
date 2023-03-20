@@ -53,6 +53,7 @@ class Geom(Printable):
 
         return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
 
+
 @dataclass
 class Case(Printable):
     """DUST simulation object.
@@ -103,20 +104,20 @@ class Case(Printable):
         """
         if not isinstance(self.geoms, list):
             self.geoms = [self.geoms]
-        if not geom_name:
-            geom_name = 'geo_input.h5'
-        if not res_name:
-            res_name = f'Output/{self.name}'
-        if not post_name:
-            post_name = f'Postpro/{self.name}'
 
         pre_str = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms]
                               + [f'file_name = {geom_name}'])
         geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
         ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
-        set_str = self.settings.to_fort() + f'\n\ngeometry_file = {geom_name}'\
-            + '\n\nreference_file = references.in'
-        post_str = f'basename = {post_name}\n\ndata_basename = {res_name}'
+        set_str = f'basename = {res_name}\n' + self.settings.to_fort()\
+            + f'\n\ngeometry_file = {geom_name}'\
+            + '\nreference_file = references.in'
+
+        if self.post:
+            post_str = self.post.to_fort()
+        else:
+            post_str = ''
+
         return {'pre': pre_str, 'geom': geom_dict,
                 'ref': ref_str, 'settings': set_str,
                 'post': post_str}
@@ -147,13 +148,20 @@ class Case(Printable):
         folder = Path(folder)
         os.makedirs(folder, exist_ok=True)
 
+        if not geom_name:
+            geom_name = 'geo_input.h5'
+        if not res_name:
+            res_name = f'Output/{self.name}'
+        if not post_name:
+            post_name = f'Postpro/{self.name}'
+
         # Create subdirectories
         res_folder = Path(res_name).parent if Path(res_name).parent != '.' else ''
         post_folder = Path(post_name).parent if Path(post_name).parent != '.' else ''
-        res_name = Path.joinpath(folder, res_folder)
-        post_name = Path.joinpath(folder, post_folder)
-        os.makedirs(res_name, exist_ok=True)
-        os.makedirs(post_name, exist_ok=True)
+        res_path = Path.joinpath(folder, res_folder)
+        post_path = Path.joinpath(folder, post_folder)
+        os.makedirs(res_path, exist_ok=True)
+        os.makedirs(post_path, exist_ok=True)
 
         # Write case files
         str_dict = self.to_fort(geom_name=geom_name, res_name=res_name,
