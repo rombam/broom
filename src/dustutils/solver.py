@@ -216,9 +216,6 @@ class ModelOpts(Printable):
     diffusion : bool, optional
         Calculate the evolution of vorticity of the particles considering the vorticity
         diffusion.
-    turbulent_viscosity : bool, optional
-        Introduce additional turbulent viscosity (Smagorinsky style) to the vorticity di-
-        ffusion term. Working only when fmm is True. Experimental.
     penetration_avoidance : bool, optional
         Apply the penetration avoidance algorithm to avoid the penetration of particles
         inside the solid bodies.
@@ -249,7 +246,6 @@ class ModelOpts(Printable):
     vortstretch: bool = True
     vortstretch_from_elems: bool = False
     diffusion: bool = True
-    turbulent_viscosity: bool = False
     penetration_avoidance: bool = False
     penetration_avoidance_check_radius: Union[int, float, np.number] = 5.0
     penetration_avoidance_element_radius: Union[int, float, np.number] = 1.5
