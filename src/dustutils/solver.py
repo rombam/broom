@@ -96,6 +96,39 @@ class TimeOpts(Printable):
             print(f'{self.dt = } is specified, ignoring {self.timesteps = }')
             self.timesteps = None
 
+    @classmethod
+    def from_rpm(cls, rpm, step, nrev, tstart=0.0, dt_out=None):
+        """Construct a TimeOpts object from RPM value, step size, and number of revolu-
+        tions. Mainly aimed at systems with propellers.
+
+        Parameters
+        ----------
+        rpm : int, float, np.number
+            Rotational speed. Units: rpm.
+        step : int, float, np.number
+            Step size. Units: degrees.
+        nrev : int
+            Number of revolutions.
+        tstart : int, float, np.number, optional
+            Start time. Units: seconds.
+        dt_out : int, float, np.number, optional
+            Output time step size. Units: seconds.
+
+        Returns
+        -------
+        cls : TimeOpts
+            TimeOpts object.
+
+        """
+        degs = rpm/60*360
+        dt = step/degs
+        tend = nrev/(rpm*60.0)
+
+        if dt_out is None:
+            dt_out = dt
+
+        return cls(tstart=tstart, tend=tend, dt=dt, dt_out=dt_out)
+
 
 @dataclass
 class FlowOpts(Printable):
