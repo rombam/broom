@@ -122,7 +122,7 @@ class TimeOpts(Printable):
         """
         degs = rpm/60*360
         dt = step/degs
-        tend = nrev/(rpm*60.0)
+        tend = nrev/(rpm/60.0)
 
         if dt_out is None:
             dt_out = dt
