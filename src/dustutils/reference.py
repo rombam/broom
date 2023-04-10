@@ -209,6 +209,8 @@ class RotorMulti(Printable):
     hub_offset : number, optional
         Offset from the rotation pole of the beginning of the chain of reference frames
         for each blade.
+    n_dofs : int, optional
+        Number of degrees of freedom for each rotor blade.
     dofs : List[RotorDOF], optional
         List of degrees of freedom for each rotor blade.
         # TODO: Should evaluate whether having a 0.0-value DOF affects performance. By
@@ -220,6 +222,7 @@ class RotorMulti(Printable):
     rot_rate: Union[int, float, np.number]
     psi_0: Union[int, float, np.number] = 0.0
     hub_offset: Union[int, float, np.number] = 0.0
+    n_dofs: int = 3
     dofs: List[RotorDOF] = field(default_factory=lambda: [RotorDOF('Flap'),
                                                           RotorDOF('Lag'),
                                                           RotorDOF('Pitch')])

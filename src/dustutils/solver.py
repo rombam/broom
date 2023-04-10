@@ -161,6 +161,10 @@ class FlowOpts(Printable):
     mu_inf: Union[int, float, np.number] = 1.8e-5
     rho_inf: Union[int, float, np.number] = 1.225
 
+    def __post_init__(self):
+        if np.linalg.norm(self.u_inf) < 1e-6:
+            print('Warning: u_inf is close to 0. Setting u_ref to 1.0.')
+            self.u_ref = 1.0
 
 @dataclass
 class WakeOpts(Printable):
