@@ -165,6 +165,9 @@ class FlowOpts(Printable):
         if np.linalg.norm(self.u_inf) < 1e-6:
             print('Warning: u_inf is close to 0. Setting u_ref to 1.0.')
             self.u_ref = 1.0
+        elif self.u_ref is None:
+            self.u_ref = np.linalg.norm(self.u_inf)
+
 
 @dataclass
 class WakeOpts(Printable):
