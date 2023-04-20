@@ -186,19 +186,19 @@ class WakeOpts(Printable):
     implicit_panel_scale : int, float, np.number, optional
         Scaling factor for the first panel of the wake, the one which enforces the Kutta
         condition. Scales the second row of the first panel, whose size is determined
-        by the local velocity and timestep.
+        by the local velocity and timestep. Default: 0.3.
     implicit_panel_min_vel : int, float, np.number, optional
         Minimum velocity for the implicit panel size, in order to avoid an implicit panel
-        of zero length. Units: m/s.
+        of zero length. Units: m/s. Default: 1e-8.
     rigid_wake : bool, optional
         Whether to use a rigid wake that evolves according to a given global velocity
-        rather than the local velocity field.
+        rather than the local velocity field. Default: False.
     rigid_wake_vel : List[int, float, np.number], np.ndarray, optional
-        (3, ) Velocity of the rigid wake. Units: m/s.
+        (3, ) Velocity of the rigid wake, required if rigid_wake is True. Units: m/s.
     join_te : bool, optional
-        Whether to use trailing edge joining for close trailing edges.
+        Whether to use trailing edge joining for close trailing edges. Default: False.
     join_te_factor : int, float, np.number, optional
-        Factor to join the trailing edge of the wake panels.
+        Factor to join the trailing edge of the wake panels. Default: 1.0.
 
     """
     n_wake_panels: int = 1
@@ -207,13 +207,13 @@ class WakeOpts(Printable):
         = np.array([-10.0, -10.0, -10.0])
     particles_box_max: Union[List[Union[int, float, np.number]], np.ndarray]\
         = np.array([10.0, 10.0, 10.0])
-    implicit_panel_scale: Union[int, float, np.number] = 0.3
-    implicit_panel_min_vel: Union[int, float, np.number] = 1e-8
-    rigid_wake: bool = False
+    implicit_panel_scale: Union[int, float, np.number] = None
+    implicit_panel_min_vel: Union[int, float, np.number] = None
+    rigid_wake: bool = None
     rigid_wake_vel: Union[List[Union[int, float, np.number]], np.ndarray]\
         = None
-    join_te: bool = False
-    join_te_factor: Union[int, float, np.number] = 1.0
+    join_te: bool = None
+    join_te_factor: Union[int, float, np.number] = None
 
 @dataclass
 class ModelOpts(Printable):
@@ -244,6 +244,7 @@ class ModelOpts(Printable):
     k_vortex_rad : int, float, np.number, optional
         Coefficient for the automatic computation of the radius of each vortex particle;
         set a negative number to disable the feature and revert to uniform vortex radius.
+        Default: 1.0.
     cutoff_rad : int, float, np.number, optional
         Parameter which sets the radius under which the vortexes interaction is completely
         set to zero.
@@ -281,7 +282,7 @@ class ModelOpts(Printable):
     doublet_threshold: Union[int, float, np.number] = 1e-6
     rankine_rad: Union[int, float, np.number] = 0.1
     vortex_rad: Union[int, float, np.number] = 0.1
-    k_vortex_rad: Union[int, float, np.number] = 1.0
+    k_vortex_rad: Union[int, float, np.number] = None
     cutoff_rad: Union[int, float, np.number] = 0.001
     vortstretch: bool = True
     vortstretch_from_elems: bool = False
@@ -383,7 +384,7 @@ class FMMOpts(Printable):
     hcas_time: Union[int, float, np.number] = None
     hcas_velocity: Union[List[Union[int, float, np.number]], np.ndarray]\
         = None
-    refine_wake: bool = True
+    refine_wake: bool = False
     k_refine: int = 1
 
 
@@ -428,11 +429,11 @@ class LLOpts(Printable):
     ll_artificial_viscosity: int, float, np.number, optional
         Artificial viscosity used to spatially regularize the solution with a gaussian
         kernel, to be used if ll_solver = 'AlphaMethod' to regularize post-stall situa-
-        tions. Refer to DUST documentation for more information.
+        tions. Refer to DUST documentation for more information. Default: 0.0.
     ll_artificial_viscosity_adaptive : bool, optional
         Whether to use an adaptive strategy to introduce artificial viscosity for regular-
         ization, in order to regularize post stall configuration while not influencing non
-        stalled configurations.
+        stalled configurations. Default: False.
     ll_artificial_viscosity_adaptive_alpha : int, float, np.number, optional
         Angle of attack after which the full artificial viscosity is introduced, thus
         after which the maximum regularization is operated. Should be set around or over
