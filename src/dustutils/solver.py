@@ -429,11 +429,11 @@ class LLOpts(Printable):
     ll_artificial_viscosity: int, float, np.number, optional
         Artificial viscosity used to spatially regularize the solution with a gaussian
         kernel, to be used if ll_solver = 'AlphaMethod' to regularize post-stall situa-
-        tions. Refer to DUST documentation for more information.
+        tions. Refer to DUST documentation for more information. Default: 0.0.
     ll_artificial_viscosity_adaptive : bool, optional
         Whether to use an adaptive strategy to introduce artificial viscosity for regular-
         ization, in order to regularize post stall configuration while not influencing non
-        stalled configurations.
+        stalled configurations. Default: False.
     ll_artificial_viscosity_adaptive_alpha : int, float, np.number, optional
         Angle of attack after which the full artificial viscosity is introduced, thus
         after which the maximum regularization is operated. Should be set around or over
