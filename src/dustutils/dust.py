@@ -69,6 +69,10 @@ class Case(Printable):
     settings : Settings
         Settings object containing the simulation settings and solver options.
         TODO: implement settings templates to make it easier for users.
+    references : List[Reference], optional
+        List of extra reference frames to be used in the simulation/postprocessing, apart
+        from the geometry-bound ones. This is useful for adding extra reference frames
+        to postprocess loads in.
     post : Post, optional
         [WIP] Postprocessing settings object.
 
@@ -76,6 +80,7 @@ class Case(Printable):
     name: str
     geoms: Union[Geom, List[Geom]]
     settings: Settings
+    references: List[Reference] = None
     post: Post = None
 
     def to_fort(self, geom_name=None, res_name=None, post_name=None):
@@ -109,6 +114,8 @@ class Case(Printable):
                               + [f'file_name = {geom_name}'])
         geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
         ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
+        if self.references is not None:
+            ref_str += '\n\n'.join([refobj.to_fort() for refobj in self.references])
         set_str = f'basename = {res_name}\n' + self.settings.to_fort()\
             + f'\n\ngeometry_file = {geom_name}'\
             + '\nreference_file = references.in'
