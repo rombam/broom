@@ -164,3 +164,20 @@ def fortranslate(value):
         return bool_fortstr(value)
     else:
         return str(value)
+
+
+def inplacify(method):
+    """Decorator to make a method inplace or not inplace.
+
+    Note
+    ----
+    Grabbed from https://stackoverflow.com/a/63208252.
+
+    """
+    def wrap(self, *a, **k):
+        inplace = k.pop("inplace", True)
+        if inplace:
+            method(self, *a, **k)
+        else:
+            return method(deepcopy(self), *a, **k)
+    return wrap
