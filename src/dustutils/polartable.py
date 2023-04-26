@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from itertools import groupby
+from functools import cached_property
 from copy import deepcopy
 
 
@@ -25,8 +26,12 @@ class PolarTable():
         self.desc = desc
 
         # Initialize data table
-        self._cols = ['Re', 'M', 'alpha', 'Cl', 'Cd', 'Cm']
+        self._cols = ['re', 'm', 'alpha', 'cl', 'cd', 'cm']
         self._table = pd.DataFrame(columns=self._cols)
+
+        self._cl = pd.DataFrame(columns=['re', 'm', 'alpha', 'cl'])
+        self._cd = pd.DataFrame(columns=['re', 'm', 'alpha', 'cd'])
+        self._cm = pd.DataFrame(columns=['re', 'm', 'alpha', 'cm'])
 
     @property
     def name(self):
@@ -94,7 +99,7 @@ class PolarTable():
 
     @property
     def table(self):
-        """Return the table as a DataFrame.
+        """Update and return the table as a DataFrame.
 
         Returns
         -------
@@ -102,11 +107,17 @@ class PolarTable():
             DataFrame containing all the data of the C81 table.
 
         """
+        temp = pd.concat([self.cl, self.cd, self.cm]).reset_index(drop=True)
+        self._table = temp.groupby(['re', 'm', 'alpha']).mean().reset_index()
         return self._table
 
     @table.setter
     def table(self, df):
         """Setter method for the table attribute.
+
+        Note
+        ----
+        Setting the table will also overwrite the cl, cd, and cm attributes.
 
         Parameters
         ----------
@@ -114,7 +125,7 @@ class PolarTable():
             Pandas DataFrame containing lift coefficient Cl, drag coefficient Cd, 
             pitching moment coefficient Cm at different angles of attack alpha at
             one or several Mach and Reynolds numbers.
-            Required columns: ['Re', 'M', 'alpha', 'Cl', 'Cd', 'Cm']
+            Required columns: ['re', 'm', 'alpha', 'cl', 'cd', 'cm']
             Data types: [float, float, float, float, float, float]
 
         Raises
@@ -128,8 +139,128 @@ class PolarTable():
             raise KeyError(f'Input columns are {df.columns}, should be {cols}')
 
         self._table = df
+        self.cl = df[['re', 'm', 'alpha', 'cl']].dropna()
+        self.cd = df[['re', 'm', 'alpha', 'cd']].dropna()
+        self.cm = df[['re', 'm', 'alpha', 'cm']].dropna()
 
-    def append_point(self, re, m, alpha, cl, cd, cm):
+    @property
+    def cl(self):
+        """Return the lift coefficient table.
+
+        Returns
+        -------
+        cl : pd.DataFrame
+            DataFrame containing the lift coefficient Cl at different angles of
+            attack alpha at one or several Mach and Reynolds numbers.
+            Columns: ['re', 'm', 'alpha', 'cl']
+            Data types: [float, float, float, float]
+
+        """
+        return self._cl
+
+    @cl.setter
+    def cl(self, df):
+        """Setter method for the cl attribute.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Pandas DataFrame containing lift coefficient Cl at different angles of
+            attack alpha at one or several Mach and Reynolds numbers.
+            Required columns: ['re', 'm', 'alpha', 'cl']
+            Data types: [float, float, float, float]
+
+        Raises
+        ------
+        KeyError
+            If the input DataFrame does not have the correct columns.
+
+        """
+        cols = ['re', 'm', 'alpha', 'cl']
+        if not set(df.columns) == set(cols):
+            raise KeyError(f'Input columns are {df.columns}, should be {cols}')
+
+        self._cl = df
+
+    @property
+    def cd(self):
+        """Return the drag coefficient table.
+
+        Returns
+        -------
+        cd : pd.DataFrame
+            DataFrame containing the drag coefficient Cd at different angles of
+            attack alpha at one or several Mach and Reynolds numbers.
+            Columns: ['re', 'm', 'alpha', 'cd']
+            Data types: [float, float, float, float]
+
+        """
+        return self._cd
+
+    @cd.setter
+    def cd(self, df):
+        """Setter method for the cd attribute.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Pandas DataFrame containing drag coefficient Cd at different angles of
+            attack alpha at one or several Mach and Reynolds numbers.
+            Required columns: ['re', 'm', 'alpha', 'cd']
+            Data types: [float, float, float, float]
+
+        Raises
+        ------
+        KeyError
+            If the input DataFrame does not have the correct columns.
+
+        """
+        cols = ['re', 'm', 'alpha', 'cd']
+        if not set(df.columns) == set(cols):
+            raise KeyError(f'Input columns are {df.columns}, should be {cols}')
+
+        self._cd = df
+
+    @property
+    def cm(self):
+        """Return the pitching moment coefficient table.
+
+        Returns
+        -------
+        cm : pd.DataFrame
+            DataFrame containing the pitching moment coefficient Cm at different
+            angles of attack alpha at one or several Mach and Reynolds numbers.
+            Columns: ['re', 'm', 'alpha', 'cm']
+            Data types: [float, float, float, float]
+
+        """
+        return self._cm
+
+    @cm.setter
+    def cm(self, df):
+        """Setter method for the cm attribute.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Pandas DataFrame containing pitching moment coefficient Cm at different
+            angles of attack alpha at one or several Mach and Reynolds numbers.
+            Required columns: ['re', 'm', 'alpha', 'cm']
+            Data types: [float, float, float, float]
+
+        Raises
+        ------
+        KeyError
+            If the input DataFrame does not have the correct columns.
+
+        """
+        cols = ['re', 'm', 'alpha', 'cm']
+        if not set(df.columns) == set(cols):
+            raise KeyError(f'Input columns are {df.columns}, should be {cols}')
+
+        self._cm = df
+
+    def append_point(self, re, m, alpha, cl=None, cd=None, cm=None):
         """Append lift, drag and moment coefficient curves for a single Re and M
         condition to the table.
 
@@ -151,9 +282,13 @@ class PolarTable():
         Raises
         ------
         ValueError
+            If no input coefficient is given.
             If inputs do not have consistent dimensions.
 
         """
+        vnames = ['cl', 'cd', 'cm']
+        if all(coeff is None for coeff in [cl, cd, cm]):
+            raise ValueError('At least one coefficient must be provided.')
 
         def all_equal(iterable):
             """Return True if all the elements are equal to each other.
@@ -167,24 +302,29 @@ class PolarTable():
             g = groupby(iterable)
             return next(g, True) and not next(g, False)
 
-        if not all_equal([len(alpha), len(cl), len(cd), len(cm)]):
-            raise ValueError(f'Inconsistent input dimensions: len(alpha) = {len(alpha)}' /
-                             f', len(cl) = {len(cl)}, len(cd) = {len(cd)}' /
-                             f', len(cm) = {len(cm)}')
         n_points = len(alpha)
         re_data = np.array(n_points*[re])
         m_data = np.array(n_points*[m])
 
-        # Assembling the input dictionary
-        input_data = {'Re': re_data,
-                      'M': m_data,
-                      'alpha': alpha,
-                      'Cl': cl,
-                      'Cd': cd,
-                      'Cm': cm}
-        table = pd.DataFrame.from_dict(input_data)
+        for idx, coeff in enumerate([cl, cd, cm]):
+            if coeff is not None:
+                cname = vnames[idx]
+                if not all_equal([len(alpha), len(coeff)]):
+                    raise ValueError('Inconsistent input dimensions: ' /
+                                     f'len(alpha) = {len(alpha)}' /
+                                     f', len({cname}) = {len(coeff)}')
 
-        self.table = pd.concat([self.table, table], ignore_index=True)
+                input_data = {'re': re_data,
+                              'm': m_data,
+                              'alpha': alpha,
+                              cname: coeff}
+                table = pd.DataFrame.from_dict(input_data).dropna()
+                if cname == 'cl':
+                    self.cl = pd.concat([self.cl, table]).drop_duplicates(ignore_index=True)
+                elif cname == 'cd':
+                    self.cd = pd.concat([self.cd, table]).drop_duplicates(ignore_index=True)
+                elif cname == 'cm':
+                    self.cm = pd.concat([self.cm, table]).drop_duplicates(ignore_index=True)
 
     def append_table(self, table):
         """Append lift, drag and moment coefficient curves in a DataFrame, for an
@@ -196,7 +336,7 @@ class PolarTable():
             Pandas DataFrame containing lift coefficient Cl, drag coefficient Cd, 
             pitching moment coefficient Cm at different angles of attack alpha at
             one or several Mach and Reynolds numbers.
-            Required columns: ['Re', 'M', 'alpha', 'Cl', 'Cd', 'Cm']
+            Required columns: ['re', 'm', 'alpha', 'cl', 'cd', 'cm']
             Data types: [float, float, float, float, float, float]
 
         Raises
@@ -205,7 +345,7 @@ class PolarTable():
             If the input DataFrame does not have the correct columns.
 
         """
-        self.table = pd.concat([self.table, table], ignore_index=True)
+        self.table = pd.concat([self.table, table]).drop_duplicates(ignore_index=True)
 
     def c81_text(self, re, comments=('', '')):
         """Return a single-Reynolds number table in C81 string format.
@@ -223,21 +363,29 @@ class PolarTable():
             Table string lines in a list.
 
         """
-        data = deepcopy(self._table.query(f"Re == {re}"))
-        name = self.name
-        table = []
-        ml = md = mm = len(data['M'].unique())
-        al = ad = am = len(data['alpha'].unique())
-        m = data['M'].unique()
 
+        cl = deepcopy(self.cl.query(f"re == {re}"))
+        cd = deepcopy(self.cd.query(f"re == {re}"))
+        cm = deepcopy(self.cm.query(f"re == {re}"))
+        name = self.name
+        ml = len(cl['m'].unique())
+        md = len(cd['m'].unique())
+        mm = len(cm['m'].unique())
+        al = len(cl['alpha'].unique())
+        ad = len(cd['alpha'].unique())
+        am = len(cm['alpha'].unique())
+        m = [ml, md, mm]
+        coeffs = [cl, cd, cm]
+        table = []
         table.append(f'{comments[0]}')
         table.append(f'{comments[1]}')
         table.append(f'{name:<33}   {ml:02}{al:02}{md:02}{ad:02}{mm:02}{am:02}')
-        for c in ['Cl', 'Cd', 'Cm']:
-            table.append(f'{"":>10}'+"".join([f'{mn:>10.4f}' for mn in m]))
-            for a in data["alpha"].unique():
-                coeffs = data.query(f"alpha == {a}")[c].to_list()
-                table.append(f'{a:>10.2f}' + "".join([f'{ci:>10.4f}' for ci in coeffs]))
+        for idx, c in enumerate(['cl', 'cd', 'cm']):
+            machs = coeffs[idx]["m"].unique()
+            table.append(f'{"":>10}'+"".join([f'{mn:>10.4f}' for mn in machs]))
+            for a in coeffs[idx]["alpha"].unique():
+                coefdata = coeffs[idx].query(f"alpha == {a}")[c].to_list()
+                table.append(f'{a:>10.2f}' + "".join([f'{ci:>10.4f}' for ci in coefdata]))
 
         return table
 
