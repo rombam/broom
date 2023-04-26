@@ -125,7 +125,8 @@ def parse_main(filename):
         if "PATHNAME" in line:
             main_dict['PATHNAME'] = lines[idx+1].strip()
         elif "INPUT FILENAMES" in line:
-            main_dict['ROTOR_FILES'][count] = {'rw': lines[idx+1].strip(),
+            name = line.strip().split('for')[-1].split('#')[0].strip()
+            main_dict['ROTOR_FILES'][name] = {'rw': lines[idx+1].strip(),
                                                'bg': lines[idx+2].strip(),
                                                'bd': lines[idx+3].strip(),
                                                'af': lines[idx+4].strip(),
@@ -297,20 +298,25 @@ def parse_af(filename):
         # CD
         mach_cd = [float(item) for item in lines.pop(0)]
         cd_table = np.array(lines[0:ad]).astype(float)
+        alpha_cd = cd_table[:, 0]
         val_cd = cd_table[:, 1:]
         lines = lines[ad:]
 
         # CM
         mach_cm = [float(item) for item in lines.pop(0)]
         cm_table = np.array(lines[0:am]).astype(float)
+        alpha_cm = cm_table[:, 0]
         val_cm = cm_table[:, 1:]
         lines = lines[am:]
 
         # Build the polar object
         polar = PolarTable(name=name, desc=desc)
         for idx, m in enumerate(mach_cl):
-            polar.append_point(re=0.0, m=m, alpha=alpha_cl, cl=val_cl[:, idx],
-                               cd=val_cd[:, idx], cm=val_cm[:, idx])
+            polar.append_point(re=0.0, m=m, alpha=alpha_cl, cl=val_cl[:, idx])
+        for idx, m in enumerate(mach_cd):
+            polar.append_point(re=0.0, m=m, alpha=alpha_cd, cd=val_cd[:, idx])
+        for idx, m in enumerate(mach_cm):
+            polar.append_point(re=0.0, m=m, alpha=alpha_cm, cm=val_cm[:, idx])
         af_dict['SEC'][af] = {'name': name,
                               'rR': r_R[af],
                               'thick': thickd[af],
