@@ -5,7 +5,7 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable
+from dustutils.utils import Printable, inplacify
 
 
 @dataclass
@@ -284,6 +284,94 @@ class Reference(Printable):
     moving: bool = False
     multiplicity: RotorMulti = None
     motion: Motion = None
+
+    @property
+    def attitude(self):
+        """Return the attitude matrix of the reference frame."""
+        return np.array(self.orientation).reshape((3, 3))
+
+    def _translate(self, r):
+        """Translate the reference frame.
+
+        Parameters
+        ----------
+        r : List[number], np.ndarray
+            (3, ) Translation vector with respect to the parent reference frame.
+
+        """
+        self.origin = np.array(self.origin) + r
+
+    def _rotate(self, R):
+        """Rotate the reference frame.
+
+        Parameters
+        ----------
+        R : np.ndarray
+            (3, 3) Rotation matrix.
+
+        """
+        self.orientation = np.dot(R, self.attitude).flatten()
+
+    def _rotzyx(self, yaw, pitch, roll):
+        """Return the intrinsic rotation matrix for the given Tait-Bryan angles about axes
+        Z-Y-X (yaw-pitch-roll).
+
+        Parameters
+        ----------
+        yaw : number
+            Yaw angle. Unit: degrees.
+        pitch : number
+            Pitch angle. Unit: degrees.
+        roll : number
+            Roll angle. Unit: degrees.
+
+        Returns
+        -------
+        np.ndarray
+            (3, 3) Rotation matrix.
+
+        """
+        yaw = np.deg2rad(yaw)
+        pitch = np.deg2rad(pitch)
+        roll = np.deg2rad(roll)
+
+        Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                       [np.sin(yaw), np.cos(yaw), 0],
+                       [0, 0, 1]])
+
+        Ry = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                       [0, 1, 0],
+                       [-np.sin(pitch), 0, np.cos(pitch)]])
+
+        Rx = np.array([[1, 0, 0],
+                       [0, np.cos(roll), -np.sin(roll)],
+                       [0, np.sin(roll), np.cos(roll)]])
+
+        return np.dot(Rz, np.dot(Ry, Rx))
+
+    @inplacify
+    def transform(self, r, yaw, pitch, roll):
+        """Transform the reference frame. Translation is performed first, then rotation.
+        Rotation is performed about the Z-Y-X axes (yaw-pitch-roll).
+
+        Parameters
+        ----------
+        r : List[number], np.ndarray
+            (3, ) Translation vector with respect to the parent reference frame.
+        yaw : number
+            Yaw angle. Unit: degrees.
+        pitch : number
+            Pitch angle. Unit: degrees.
+        roll : number
+            Roll angle. Unit: degrees.
+        inplace : bool, optional
+            If True, perform the transformation in place. If False, return a new object.
+            Default: True.
+
+        """
+        self._translate(r)
+        self._rotate(self._rotzyx(yaw, pitch, roll))
+        return self
 
     def _fort_strs(self, ignore=[], indent=0):
         if not self.multiple:
