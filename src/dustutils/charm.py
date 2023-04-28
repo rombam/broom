@@ -80,6 +80,8 @@ def parse_main(filename):
         lines = f.readlines()
 
     # Assign number of expected values and expected type
+    # TODO: dependency on SFRAME. If SFRAME=1, then UCG, VCG, WCG, if SFRAME=2, then
+    # WIND
     n_val = {'NROTOR': [1, int],
              'IMKS': [1, int],
              'SSPD': [1, float],
