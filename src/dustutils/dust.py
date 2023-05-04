@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from typing import List, Union
 from pathlib import Path
+from copy import deepcopy
 
 from dustutils.utils import Printable
 from dustutils.mesh import CGNS, Parametric, Pointwise
@@ -51,7 +52,7 @@ class Geom(Printable):
                                 f'geo_file = {save_name}.in',
                                 f'ref_tag = {self.ref.reference_tag}'])
 
-        return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
+        return {'pre': pre_string, 'geom': deepcopy(self.geom).to_fort(), 'ref': deepcopy(self.ref).to_fort()}
 
 
 @dataclass
@@ -80,8 +81,15 @@ class Case(Printable):
     name: str
     geoms: Union[Geom, List[Geom]]
     settings: Settings
-    references: List[Reference] = None
+    references: Union[Reference, list[Reference]] = None
     post: Post = None
+
+    def __post_init__(self):
+        """Post-initialization method."""
+        if not isinstance(self.geoms, list):
+            self.geoms = [self.geoms]
+        if not isinstance(self.references, list):
+            self.references = [self.references]
 
     def to_fort(self, geom_name=None, res_name=None, post_name=None):
         """Modified to_fort superclass method.
@@ -107,21 +115,26 @@ class Case(Printable):
             ings and postprocessing settings Fortran string representations.
 
         """
-        if not isinstance(self.geoms, list):
-            self.geoms = [self.geoms]
+        geom_fort = [geomobj.to_fort() for geomobj in deepcopy(self.geoms)]
+        geom_names = [geomobj.comp_name for geomobj in deepcopy(self.geoms)]
 
-        pre_str = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms]
+        pre_str = '\n\n'.join([geomd['pre'] for geomd in geom_fort]
                               + [f'file_name = {geom_name}'])
-        geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
-        ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
+        geom_dict = {geom_names[i]: geom_fort[i]['geom'] for i in range(len(geom_names))}
+
         if self.references is not None:
-            ref_str += '\n\n'.join([refobj.to_fort() for refobj in self.references])
-        set_str = f'basename = {res_name}\n' + self.settings.to_fort()\
+            ref_str = '\n\n'.join([refobj.to_fort() for refobj in deepcopy(self.references)])
+        else:
+            ref_str = ''
+
+        ref_str += '\n\n' + '\n\n'.join([geomd['ref'] for geomd in geom_fort])
+
+        set_str = f'basename = {res_name}\n' + deepcopy(self.settings).to_fort()\
             + f'\n\ngeometry_file = {geom_name}'\
             + '\nreference_file = references.in'
 
         if self.post:
-            post_str = self.post.to_fort()
+            post_str = deepcopy(self.post).to_fort()
         else:
             post_str = ''
 
