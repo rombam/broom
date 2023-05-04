@@ -372,10 +372,3 @@ class Reference(Printable):
         self._translate(r)
         self._rotate(self._rotzyx(yaw, pitch, roll))
         return self
-
-    def _fort_strs(self, ignore=[], indent=0):
-        if not self.multiple:
-            ignore.extend(['multiplicity'])
-        if not self.moving:
-            ignore.extend(['motion'])
-        return super()._fort_strs(ignore=ignore, indent=indent)
