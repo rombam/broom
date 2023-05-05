@@ -205,7 +205,7 @@ def parse_bg(filename):
                  'SWEEPD': [nseg, float],
                  'TWSTGD': [nseg, float],
                  'ANHD': [nseg, float],
-                 'THIKND': [nseg+1, float]}
+                 'THCKND': [nseg+1, float]}
 
     # Parse multiple parameters
     for idx, line in enumerate(lines):
