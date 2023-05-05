@@ -195,12 +195,12 @@ def basic_post(res, name):
                    variable=['vorticity', 'surface_velocity', 'velocity', 'pressure', 'cp', 'vorticity_vector'],
                    step_res=1)
 
-    int_post = Integral(name='int_wind',
+    int_wind = Integral(name='int_wind',
                         start_res=res[0],
                         end_res=res[1],
                         step_res=1)
 
-    int_post = Integral(name='int_ac',
+    int_ac = Integral(name='int_ac',
                         start_res=res[0],
                         end_res=res[1],
                         step_res=1,
@@ -208,6 +208,6 @@ def basic_post(res, name):
 
     post_obj = Post(data_basename=f'Output/{name}',
                     basename=f'Postpro/{name}',
-                    analyses=[viz_post, int_post])
+                    analyses=[viz_post, int_wind, int_ac])
 
     return post_obj
