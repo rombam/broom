@@ -1,16 +1,17 @@
 import os
+import numpy as np
 
 from dataclasses import dataclass
 from typing import List, Union
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable
-from dustutils.mesh import CGNS, Parametric, Pointwise
-from dustutils.reference import Reference
-from dustutils.solver import Settings
-from dustutils.post import Post
-
+from .utils import Printable
+from .mesh import CGNS, Parametric, Pointwise
+from .reference import Reference
+from .solver import Settings
+from .post import Post, basic_post
+from .charm import parse_main, parse_af, parse_bg, parse_rw, geom_charm, opts_charm
 
 @dataclass
 class Geom(Printable):
@@ -90,6 +91,49 @@ class Case(Printable):
             self.geoms = [self.geoms]
         if not isinstance(self.references, list):
             self.references = [self.references]
+
+    @classmethod
+    def from_charm(cls, main, name):
+        """Create a DUST case from a CHARM case.
+
+        Notes
+        -----
+        By default, returns a case with lifting-line elements, n_part=200000, a bounding box between
+        (-15, -15, -15) and (15, 15, 15), and a timestep set by using the RPM and NPSI from the CHARM
+        case. The user can modify these settings by changing the case properties after creation.
+
+        Parameters
+        ----------
+        main : str, Path
+            Path to the CHARM main file.
+        name : str
+            Name of the case.
+
+        """
+        mainpath = Path(main)
+        root = mainpath.parent.absolute()
+        main = parse_main(mainpath)
+        geoms = []
+        omegas = {}
+        for rname, rdata in main['ROTOR_FILES'].items():
+            bg_path = root / Path(rdata['bg'])
+            af_path = root / Path(rdata['af'])
+            rw_path = root / Path(rdata['rw'])
+            bg = parse_bg(bg_path)
+            af = parse_af(af_path)
+            rw = parse_rw(rw_path)
+            omegas[rname] = rw['OMEGA']
+            geom, ref = geom_charm(bg, af, rw, rname)
+            geoms.append(Geom(rname, geom, ref))
+
+        rw = parse_rw(root / Path(main['ROTOR_FILES'][max(omegas, key=omegas.get)]['rw']))
+        flowsets = opts_charm(main, rw)
+        last_step = int((flowsets.time.tend-flowsets.time.tstart)/flowsets.time.dt)
+        post = basic_post(res=(1, last_step), name=name)
+        ac_ref = Reference(reference_tag='ac', parent_tag='0', origin=np.array([0.0, 0.0, 0.0]),
+                           orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]))
+
+        return cls(name, geoms, flowsets, references=[ac_ref], post=post)
 
     def to_fort(self, geom_name=None, res_name=None, post_name=None):
         """Modified to_fort superclass method.
