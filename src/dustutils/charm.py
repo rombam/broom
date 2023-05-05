@@ -3,6 +3,7 @@ import numpy as np
 
 from pathlib import Path
 from warnings import warn
+from copy import deepcopy
 from .polartable import PolarTable
 from .solver import Settings, TimeOpts, WakeOpts, FMMOpts, FlowOpts, ModelOpts
 from .mesh import Point, Line, Pointwise, MeshMirror, MeshSymmetry
@@ -341,23 +342,6 @@ def mesh_charm(bg, af, rw):
     """
     R = sum(bg['SL'])+bg['CUTOUT']
 
-    prop_data = {}
-    prop_data['af'] = {}
-    prop_data['af']['rR'] = np.array([af['SEC'][i]['rR'] for i in af['SEC'].keys()])
-    prop_data['af']['table'] = [af['SEC'][i]['polar'] for i in af['SEC'].keys()]
-    prop_data['chord'] = {}
-    prop_data['chord']['span'] = np.array(bg['SL'])
-    tmptwst = [bg['TWRD']]+bg['TWSTGD']
-    prop_data['chord']['twist'] = np.array([sum(tmptwst[0:i+1]) for i in range(len(tmptwst))])
-    prop_data['chord']['chord'] = np.array(bg['CHORD'])
-    prop_data['chord']['rR'] = [round(bg['CUTOUT']/R+sum(prop_data['chord']['span'][0:i]/R), 3) for i in range(len(prop_data['chord']['span'])+1)]
-    prop_data['interp'] = {'rR': sorted(set(prop_data['af']['rR']).union(set(prop_data['chord']['rR'])))}
-    prop_data['interp']['r'] = [r*R for r in prop_data['interp']['rR']]
-    prop_data['interp']['chord'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['chord'])
-    prop_data['interp']['twist'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['twist'])
-    prop_data['interp']['af'] = [prop_data['af']['table'][list(prop_data['af']['rR']).index(rr)] if rr in prop_data['af']['rR'] else 'interp' for rr in prop_data['interp']['rR']]
-    prop_data['interp']['af_name'] = [f"airfoil/{prop_data['interp']['af'][i].name}.c81" if prop_data['interp']['af'][i] != 'interp' else 'interp' for i in range(len(prop_data['interp']['af']))]
-
     if rw['OMEGA'] > 0.0:
         if rw['IROTAT'] == -1:
             mesh_mirror = MeshMirror(mesh_mirror=True)
@@ -371,10 +355,51 @@ def mesh_charm(bg, af, rw):
         mesh_symmetry = MeshSymmetry(mesh_symmetry=True)
         mult = 1
 
+    prop_data = {}
+    prop_data['af'] = {}
+    prop_data['af']['rR'] = np.array([af['SEC'][i]['rR'] for i in af['SEC'].keys()])
+    prop_data['af']['table'] = [af['SEC'][i]['polar'] for i in af['SEC'].keys()]
+    prop_data['chord'] = {}
+    prop_data['chord']['span'] = np.array(bg['SL'])
+    prop_data['chord']['sweep'] = np.array(bg['SWEEPD'])
+    prop_data['chord']['anhed'] = np.array(bg['ANHD'])
+    tmptwst = [bg['TWRD']]+bg['TWSTGD']
+    prop_data['chord']['twist'] = np.array([sum(tmptwst[0:i+1]) for i in range(len(tmptwst))])
+    prop_data['chord']['chord'] = np.array(bg['CHORD'])
+    prop_data['chord']['rR'] = [round(bg['CUTOUT']/R+sum(prop_data['chord']['span'][0:i]/R), 3) for i in range(len(prop_data['chord']['span'])+1)]
+
+    # Sectional properties
+    prop_data['interp'] = {'rR': sorted(set(prop_data['af']['rR']).union(set(prop_data['chord']['rR'])))}
+    prop_data['interp']['r'] = [r*R for r in prop_data['interp']['rR']]
+    prop_data['interp']['chord'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['chord'])
+    prop_data['interp']['twist'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['twist'])
+    prop_data['interp']['af'] = [prop_data['af']['table'][list(prop_data['af']['rR']).index(rr)] if rr in prop_data['af']['rR'] else 'interp' for rr in prop_data['interp']['rR']]
+    prop_data['interp']['af_name'] = [f"airfoil/{prop_data['interp']['af'][i].name}.c81" if prop_data['interp']['af'][i] != 'interp' else 'interp' for i in range(len(prop_data['interp']['af']))]
+
+    # Strip properties
+    prop_data['interp']['sweep'] = np.interp(prop_data['interp']['rR'][1:], prop_data['chord']['rR'][1:], prop_data['chord']['sweep'])
+    prop_data['interp']['sweep'] = np.insert(prop_data['interp']['sweep'], 0, 0.0)
+    prop_data['interp']['anhed'] = np.interp(prop_data['interp']['rR'][1:], prop_data['chord']['rR'][1:], prop_data['chord']['anhed'])
+    prop_data['interp']['anhed'] = np.insert(prop_data['interp']['anhed'], 0, 0.0)
+    prop_data['interp']['span'] = np.array([0.0] + [prop_data['interp']['r'][i]-prop_data['interp']['r'][i-1]
+                                                    for i in range(1, len(prop_data['interp']['r']))])
 
     nsec = len(prop_data['interp']['af_name'])
     airfoils = prop_data['interp']['af_name']
-    positions = [[mult*prop_data['interp']['r'][i], mult*prop_data['interp']['r'][i], 0.0] for i in range(nsec)]      
+
+    # Parse section positions
+    prop_data['interp']['dx'] = np.array([np.tan(np.deg2rad(prop_data['interp']['sweep'][i]))\
+                                          * mult * prop_data['interp']['span'][i]
+                                          for i in range(nsec)])
+    prop_data['interp']['dz'] = np.array([-np.tan(np.deg2rad(prop_data['interp']['anhed'][i]))\
+                                          * mult * prop_data['interp']['span'][i]
+                                          for i in range(nsec)])
+
+    nsec = len(prop_data['interp']['af_name'])
+    airfoils = prop_data['interp']['af_name']
+    positions = [[np.sum(prop_data['interp']['dx'][0:i+1]),
+                  mult*prop_data['interp']['r'][i],
+                  np.sum(prop_data['interp']['dz'][0:i+1])] for i in range(nsec)]
 
     points = [Point(i, positions[i-1], prop_data['interp']['chord'][i-1], prop_data['interp']['twist'][i-1], airfoil_table=airfoils[i-1]) for i in range(1, nsec+1)]
     lines = [Line('Straight', points[i], points[i+1], 1) for i in range(0, nsec-1)]
@@ -456,7 +481,7 @@ def geom_charm(bg, af, rw, name):
     geom = mesh_charm(bg, af, rw)
     ref = ref_charm(rw, tag=name)
 
-    return geom, ref
+    return deepcopy(geom), deepcopy(ref)
 
 def opts_charm(main, rw, parts=200000, part_box_min=np.array([-15.0, -15.0, -15.0]),
                part_box_max=np.array([15.0, 15.0, 15.0])):
