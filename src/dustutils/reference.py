@@ -287,7 +287,14 @@ class Reference(Printable):
 
     @property
     def attitude(self):
-        """Return the attitude matrix of the reference frame."""
+        """Return the attitude matrix of the reference frame.
+
+        Returns
+        -------
+        np.ndarray
+            (3, 3) Attitude matrix. The columns are the i, j, k vectors of the reference frame.
+
+        """
         return np.array(self.orientation).reshape((3, 3))
 
     def _translate(self, r):
@@ -310,7 +317,7 @@ class Reference(Printable):
             (3, 3) Rotation matrix.
 
         """
-        self.orientation = np.dot(R, self.attitude).flatten()
+        self.orientation = np.dot(R, self.attitude).T.flatten()
 
     def _rotzyx(self, yaw, pitch, roll):
         """Return the intrinsic rotation matrix for the given Tait-Bryan angles about axes
