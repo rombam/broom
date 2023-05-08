@@ -435,6 +435,13 @@ def ref_charm(rw, tag='propsys', parent='ac'):
     nblades = rw['NBLADE']
     irotat = rw['IROTAT']
     coll = rw['COLL']
+
+    # Transform CHARM angles
+    # TODO: include this process in the documentation
+    yaw += 90.0
+    pitch = -roll
+    roll = pitch
+
     if irotat == 1:
         rot_axis = np.array([0.0, 0.0, -1.0])
     elif irotat == -1:
@@ -451,9 +458,6 @@ def ref_charm(rw, tag='propsys', parent='ac'):
                                                           RotorDOF('Pitch',
                                                                    collective=coll)]))
     else:
-        # Modify the yaw (azimuth) and pitch angles in the CHARM reference frame
-        yaw = 0.0
-        pitch += 180.0
         propref = Reference(reference_tag=tag, parent_tag=parent,
                             origin=np.array([0.0, 0.0, 0.0]),
                             orientation=np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]))
