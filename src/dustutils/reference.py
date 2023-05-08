@@ -357,19 +357,19 @@ class Reference(Printable):
         return np.dot(Rz, np.dot(Ry, Rx))
 
     @inplacify
-    def transform(self, r, yaw, pitch, roll):
+    def transform(self, r=np.zeros(3), yaw=0.0, pitch=0.0, roll=0.0):
         """Transform the reference frame. Translation is performed first, then rotation.
         Rotation is performed about the Z-Y-X axes (yaw-pitch-roll).
 
         Parameters
         ----------
-        r : List[number], np.ndarray
+        r : List[number], np.ndarray, optional
             (3, ) Translation vector with respect to the parent reference frame.
-        yaw : number
+        yaw : number, optional
             Yaw angle. Unit: degrees.
-        pitch : number
+        pitch : number, optional
             Pitch angle. Unit: degrees.
-        roll : number
+        roll : number, optional
             Roll angle. Unit: degrees.
         inplace : bool, optional
             If True, perform the transformation in place. If False, return a new object.
