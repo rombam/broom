@@ -432,24 +432,42 @@ def ref_charm(rw, tag='propsys', parent='ac'):
     yaw = rw['TILT'][2]
     pitch = rw['TILT'][1]
     roll = rw['TILT'][0]
+    itilt = rw['ITILT']
     nblades = rw['NBLADE']
     irotat = rw['IROTAT']
     coll = rw['COLL']
 
     # Transform CHARM angles
     # TODO: include this process in the documentation
-    yaw += 90.0
-    pitch = -roll
-    roll = pitch
+    print(f'{tag}: {yaw, pitch, roll}')
+    if itilt == 0 or itilt == 1:
+        # yaw += 90.0
+        # pitch = -roll
+        # roll = pitch
+        # order = 'xyz'
+        yaw += 90.0
+        pitch = pitch
+        roll = -roll
+        order = 'xyz'
+    elif itilt == 2:
+        order = 'yxz'
+        yaw += 90.0
+        # pitch = -roll-90.0
+        # roll = pitch
+        pitch = pitch
+        roll = -roll
 
+    yaw = pitch = roll = 0.0
+    print(f'{tag}2: {yaw, pitch, roll}')
     if irotat == 1:
-        rot_axis = np.array([0.0, 0.0, -1.0])
-    elif irotat == -1:
         rot_axis = np.array([0.0, 0.0, 1.0])
+    elif irotat == -1:
+        rot_axis = np.array([0.0, 0.0, -1.0])
+
     if nblades > 1:
         propref = Reference(reference_tag=tag, parent_tag=parent,
                             origin=np.array([0.0, 0.0, 0.0]),
-                            orientation=np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]),
+                            orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]),
                             multiple=True,
                             multiplicity=RotorMulti(n_blades=nblades, rot_axis=rot_axis,
                                                     rot_rate=rpm/60*2*np.pi,
@@ -457,12 +475,23 @@ def ref_charm(rw, tag='propsys', parent='ac'):
                                                           RotorDOF('Lag'),
                                                           RotorDOF('Pitch',
                                                                    collective=coll)]))
+    # elif nblades == 1:
+    #     propref = Reference(reference_tag=tag, parent_tag=parent,
+    #                         origin=np.array([0.0, 0.0, 0.0]),
+    #                         orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]),
+    #                         multiple=True,
+    #                         multiplicity=RotorMulti(n_blades=nblades, rot_axis=rot_axis,
+    #                                                 rot_rate=rpm/60*2*np.pi,
+    #                                                 dofs=[RotorDOF('Flap'),
+    #                                                       RotorDOF('Lag'),
+    #                                                       RotorDOF('Pitch',
+    #                                                                collective=coll)]))
     else:
         propref = Reference(reference_tag=tag, parent_tag=parent,
                             origin=np.array([0.0, 0.0, 0.0]),
-                            orientation=np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]))
+                            orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]))
 
-    propref.transform(origin, yaw, pitch, roll)
+    propref.transform(origin, yaw, pitch, roll, order)
 
     return propref
 
