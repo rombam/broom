@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from itertools import groupby
-from functools import cached_property
 from copy import deepcopy
 
 
