@@ -87,17 +87,12 @@ def parse_main(filename):
     # Assign number of expected values and expected type
     # TODO: dependency on SFRAME. If SFRAME=1, then UCG, VCG, WCG, if SFRAME=2, then
     # WIND
+
     n_val = {'NROTOR': [1, int],
              'IMKS': [1, int],
              'SSPD': [1, float],
              'RHO': [1, float],
              'SFRAME': [1, int],
-             'UCG': [1, float],
-             'VCG': [1, float],
-             'WCG': [1, float],
-             'PCG': [1, float],
-             'QCG': [1, float],
-             'RCG': [1, float],
              'NPSI': [1, int],
              'NREV': [1, int]}
 
@@ -122,6 +117,62 @@ def parse_main(filename):
                                       for val in values[count:count+n_values]]
                 else:
                     main_dict[key] = type_values(values[count])
+                count += n_values
+                n_val.pop(key)
+
+    if main_dict['SFRAME'] == 1:
+        n_val = {'UCG': [1, float],
+                 'VCG': [1, float],
+                 'WCG': [1, float],
+                 'PCG': [1, float],
+                 'QCG': [1, float],
+                 'RCG': [1, float]}
+    elif main_dict['SFRAME'] == 2:
+        n_val = {'WIND': [3, float]}
+
+    key_trans = {'UCG': 'U',
+                 'VCG': 'V',
+                 'WCG': 'W',
+                 'PCG': 'P',
+                 'QCG': 'Q',
+                 'RCG': 'R'}
+
+    # Parse multiple parameters
+    for idx, line in enumerate(lines):
+        found = []
+        for keyword in n_val.keys():
+            if keyword in lines[idx-1]:
+                found.append(keyword)
+        if found:
+            values = line.strip().replace('\n', '').split(' ')
+            values = [val for val in values if val]
+            if len(values) == 1:
+                values = values[0].split('*')
+                values = int(values[0])*[float(values[1])]
+            else:
+                values = [float(val) for val in values]
+
+            count = 0
+            for key in found:
+                n_values = n_val[key][0]
+                type_values = n_val[key][1]
+                if n_values > 1:
+                    if key == 'WIND':
+                        wspeed = values[count:count+n_values]
+                        main_dict['U'] = wspeed[0]
+                        main_dict['V'] = wspeed[1]
+                        main_dict['W'] = wspeed[2]
+                    else:
+                        main_dict[key_trans[key]] = [type_values(val)
+                                                     for val in values[count:count+n_values]]
+                else:
+                    # Adjust wind velocity signs for Y axis
+                    if key in ['VCG', 'RCG']:
+                        mult = -1
+                    else:
+                        mult = 1
+                    main_dict[key_trans[key]] = [mult*type_values(val)
+                                                for val in values[count:count+n_values]]
                 count += n_values
                 n_val.pop(key)
 
@@ -541,7 +592,7 @@ def opts_charm(main, rw, parts=200000, part_box_min=np.array([-15.0, -15.0, -15.
     else:
         topts = TimeOpts.from_rpm(rpm=rpm, step=step, nrev=n_rev)
 
-    flopts = FlowOpts(u_inf=np.array([main['UCG'], -main['VCG'], main['WCG']]))
+    flopts = FlowOpts(u_inf=np.array([main['U'], -main['V'], main['W']]))
     fmmopts = FMMOpts(fmm=True, box_length=10,
                       n_box=[3, 3, 3], octree_origin=part_box_min,
                       n_octree_levels=6,
