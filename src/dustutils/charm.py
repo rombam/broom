@@ -9,6 +9,7 @@ from .solver import Settings, TimeOpts, WakeOpts, FMMOpts, FlowOpts, ModelOpts
 from .mesh import Point, Line, Pointwise, MeshMirror, MeshSymmetry
 from .reference import Reference, RotorMulti, RotorDOF
 
+
 def parse_rw(filename):
     """Parse a rotor wake (rw) CHARM file and return useful DUST parameters of the case.
 
@@ -133,10 +134,10 @@ def parse_main(filename):
         elif "INPUT FILENAMES" in line:
             name = line.strip().split('for')[-1].split('#')[0].strip()
             main_dict['ROTOR_FILES'][name] = {'rw': lines[idx+1].strip(),
-                                               'bg': lines[idx+2].strip(),
-                                               'bd': lines[idx+3].strip(),
-                                               'af': lines[idx+4].strip(),
-                                               'cs': lines[idx+5].strip()}
+                                              'bg': lines[idx+2].strip(),
+                                              'bd': lines[idx+3].strip(),
+                                              'af': lines[idx+4].strip(),
+                                              'cs': lines[idx+5].strip()}
             count += 1
 
     # Warn if numebr of filename blocks is not equal to NROTOR
@@ -339,6 +340,11 @@ def mesh_charm(bg, af, rw):
     rw : dict
         Rotor wake dictionary from CHARM.
 
+    Returns
+    -------
+    mesh : Pointwise
+        Pointwise mesh object.
+
     """
     R = sum(bg['SL'])+bg['CUTOUT']
 
@@ -426,6 +432,11 @@ def ref_charm(rw, tag='propsys', parent='ac'):
     parent : str, optional
         Parent tag. Default: 'ac'.
 
+    Returns
+    -------
+    ref : Reference
+        Reference object.
+
     """
     rpm = rw['OMEGA']*60/(2*np.pi)
     origin = rw['XROTOR']
@@ -448,7 +459,7 @@ def ref_charm(rw, tag='propsys', parent='ac'):
         rot_axis = np.array([0.0, 0.0, -1.0])
 
     if nblades > 1:
-        propref = Reference(reference_tag=tag, parent_tag=parent,
+        compref = Reference(reference_tag=tag, parent_tag=parent,
                             origin=np.array([0.0, 0.0, 0.0]),
                             orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]),
                             multiple=True,
@@ -462,17 +473,17 @@ def ref_charm(rw, tag='propsys', parent='ac'):
         if np.isclose(rpm, 0.0, atol=1e-6):
             # Reduce CHARM yaw angle by 90 degrees for wings
             yaw -= 90.0
-        propref = Reference(reference_tag=tag, parent_tag=parent,
+        compref = Reference(reference_tag=tag, parent_tag=parent,
                             origin=np.array([0.0, 0.0, 0.0]),
                             orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]))
 
-    propref.transform(origin, yaw, pitch, roll, order)
+    compref.transform(origin, yaw, pitch, roll, order)
 
-    return propref
+    return compref
 
 
 def geom_charm(bg, af, rw, name):
-    """Create a Geom object from CHARM case files.
+    """Create a Pointwise object and a Reference object from CHARM case files.
 
     Parameters
     ----------
@@ -484,6 +495,13 @@ def geom_charm(bg, af, rw, name):
         Dictionary of rotor wake case file parameters.
     name : str
         Name of the Geom object.
+
+    Returns
+    -------
+    geom : Geom
+        Pointwise object.
+    ref : Reference
+        Reference object.
 
     """
     geom = mesh_charm(bg, af, rw)
@@ -507,6 +525,11 @@ def opts_charm(main, rw, parts=200000, part_box_min=np.array([-15.0, -15.0, -15.
         Minimum corner of the wake particle box. Default: np.array([-15.0, -15.0, -15.0]).
     part_box_max : np.ndarray, optional
         Maximum corner of the wake particle box. Default: np.array([15.0, 15.0, 15.0]).
+
+    Returns
+    -------
+    settings : Settings
+        Settings object.
 
     """
     rpm = rw['OMEGA']*60/(2*np.pi)
