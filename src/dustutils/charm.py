@@ -171,8 +171,8 @@ def parse_main(filename):
                         mult = -1
                     else:
                         mult = 1
-                    main_dict[key_trans[key]] = [mult*type_values(val)
-                                                for val in values[count:count+n_values]]
+                    main_dict[key_trans[key]] = mult*type_values(values[count])
+
                 count += n_values
                 n_val.pop(key)
 
