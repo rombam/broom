@@ -1,4 +1,6 @@
 import os
+import subprocess
+import time
 import numpy as np
 
 from dataclasses import dataclass
@@ -241,3 +243,151 @@ class Case(Printable):
         for geom in str_dict['geom'].keys():
             with open(Path.joinpath(folder, f'{geom}.in'), 'w+') as f:
                 f.writelines(str_dict['geom'][geom])
+
+
+def dust_pre(path, file=None, verbose=True):
+    """Run the DUST preprocessor in a folder.
+
+    Parameters
+    ----------
+    path : str, Path
+        Case folder.
+    pre : str, optional
+        Name of the preprocessor input file. If default, will look for dust_pre.in
+        in the path directory.
+    verbose : bool, optional
+        If True, print the output from the preprocessor. Slight performance hit if True.
+        Default: True.
+
+    """
+    path = Path(path)
+    dust_str = f'dust_pre {file}' if file is not None else 'dust_pre'
+    cmd = f'cd {path}; {dust_str}'
+
+    if verbose:
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+
+        with con.stdout:
+            for line in iter(con.stdout.readline, b''):
+                if line.decode() != '\n':
+                    print(line.decode())
+        con.wait()
+
+    else:
+        print(f'Running DUST_PRE in {path}...')
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+        con.wait()
+
+
+def dust(path, file=None, verbose=True):
+    """Run the DUST solver in a folder.
+
+    Parameters
+    ----------
+    path : str, Path
+        Case folder.
+    solv : str, optional
+        Name of the solver input file. If default, will look for dust.in
+        in the path directory.
+    verbose : bool, optional
+        If True, print the output from the solver. Slight performance hit if True.
+        Default: True.
+
+    """
+    path = Path(path)
+    dust_str = f'dust {file}' if file is not None else 'dust'
+    cmd = f'cd {path}; {dust_str}'
+
+    if verbose:
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+
+        with con.stdout:
+            for line in iter(con.stdout.readline, b''):
+                if line.decode() != '\n':
+                    print(line.decode())
+        con.wait()
+
+    else:
+        print(f'Running DUST in {path}...')
+        start_time = time.time()
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+        con.wait()
+        print('Run finished in {:.2f} s\n'.format(time.time() - start_time))
+
+
+def dust_post(path, file=None, verbose=True):
+    """Run the DUST postprocessor in a folder.
+
+    Parameters
+    ----------
+    path : str, Path
+        Case folder.
+    pre : str, optional
+        Name of the postprocessor input file. If default, will look for dust_post.in
+        in the path directory.
+    verbose : bool, optional
+        If True, print the output from the postprocessor. Slight performance hit if True.
+        Default: True.
+
+    """
+    path = Path(path)
+    dust_str = f'dust_post {file}' if file is not None else 'dust_post'
+    cmd = f'cd {path}; {dust_str}'
+
+    if verbose:
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+
+        with con.stdout:
+            for line in iter(con.stdout.readline, b''):
+                if line.decode() != '\n':
+                    print(line.decode())
+        con.wait()
+
+    else:
+        print(f'Running DUST_PRE in {path}...')
+        con = subprocess.Popen(cmd,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.STDOUT,
+                               bufsize=1,
+                               shell=True)
+        con.wait()
+
+
+def clear_results(path):
+    """Clear the results from a folder.
+
+    Note
+    ----
+    This function will delete all .vtu and .h5 files in the folder.
+
+    Parameters
+    ----------
+    path : str, Path
+        Case folder.
+
+    """
+    path = Path(path)
+    for file in path.rglob("*.vtu"):
+        file.unlink()
+    for file in path.rglob("*.h5"):
+        file.unlink()
