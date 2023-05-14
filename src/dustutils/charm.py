@@ -1,8 +1,13 @@
 # Tools to work with CHARM files
 import numpy as np
 
+from pathlib import Path
 from warnings import warn
+from copy import deepcopy
 from .polartable import PolarTable
+from .solver import Settings, TimeOpts, WakeOpts, FMMOpts, FlowOpts, ModelOpts
+from .mesh import Point, Line, Pointwise, MeshMirror, MeshSymmetry
+from .reference import Reference, RotorMulti, RotorDOF
 
 
 def parse_rw(filename):
@@ -80,17 +85,14 @@ def parse_main(filename):
         lines = f.readlines()
 
     # Assign number of expected values and expected type
+    # TODO: dependency on SFRAME. If SFRAME=1, then UCG, VCG, WCG, if SFRAME=2, then
+    # WIND
+
     n_val = {'NROTOR': [1, int],
              'IMKS': [1, int],
              'SSPD': [1, float],
              'RHO': [1, float],
              'SFRAME': [1, int],
-             'UCG': [1, float],
-             'VCG': [1, float],
-             'WCG': [1, float],
-             'PCG': [1, float],
-             'QCG': [1, float],
-             'RCG': [1, float],
              'NPSI': [1, int],
              'NREV': [1, int]}
 
@@ -118,6 +120,62 @@ def parse_main(filename):
                 count += n_values
                 n_val.pop(key)
 
+    if main_dict['SFRAME'] == 1:
+        n_val = {'UCG': [1, float],
+                 'VCG': [1, float],
+                 'WCG': [1, float],
+                 'PCG': [1, float],
+                 'QCG': [1, float],
+                 'RCG': [1, float]}
+    elif main_dict['SFRAME'] == 2:
+        n_val = {'WIND': [3, float]}
+
+    key_trans = {'UCG': 'U',
+                 'VCG': 'V',
+                 'WCG': 'W',
+                 'PCG': 'P',
+                 'QCG': 'Q',
+                 'RCG': 'R'}
+
+    # Parse multiple parameters
+    for idx, line in enumerate(lines):
+        found = []
+        for keyword in n_val.keys():
+            if keyword in lines[idx-1]:
+                found.append(keyword)
+        if found:
+            values = line.strip().replace('\n', '').split(' ')
+            values = [val for val in values if val]
+            if len(values) == 1:
+                values = values[0].split('*')
+                values = int(values[0])*[float(values[1])]
+            else:
+                values = [float(val) for val in values]
+
+            count = 0
+            for key in found:
+                n_values = n_val[key][0]
+                type_values = n_val[key][1]
+                if n_values > 1:
+                    if key == 'WIND':
+                        wspeed = values[count:count+n_values]
+                        main_dict['U'] = wspeed[0]
+                        main_dict['V'] = wspeed[1]
+                        main_dict['W'] = wspeed[2]
+                    else:
+                        main_dict[key_trans[key]] = [type_values(val)
+                                                     for val in values[count:count+n_values]]
+                else:
+                    # Adjust wind velocity signs for Y axis
+                    if key in ['VCG', 'RCG']:
+                        mult = -1
+                    else:
+                        mult = 1
+                    main_dict[key_trans[key]] = mult*type_values(values[count])
+
+                count += n_values
+                n_val.pop(key)
+
     # Parse filename blocks
     main_dict['ROTOR_FILES'] = {}
     count = 0
@@ -125,11 +183,12 @@ def parse_main(filename):
         if "PATHNAME" in line:
             main_dict['PATHNAME'] = lines[idx+1].strip()
         elif "INPUT FILENAMES" in line:
-            main_dict['ROTOR_FILES'][count] = {'rw': lines[idx+1].strip(),
-                                               'bg': lines[idx+2].strip(),
-                                               'bd': lines[idx+3].strip(),
-                                               'af': lines[idx+4].strip(),
-                                               'cs': lines[idx+5].strip()}
+            name = line.strip().split('for')[-1].split('#')[0].strip()
+            main_dict['ROTOR_FILES'][name] = {'rw': lines[idx+1].strip(),
+                                              'bg': lines[idx+2].strip(),
+                                              'bd': lines[idx+3].strip(),
+                                              'af': lines[idx+4].strip(),
+                                              'cs': lines[idx+5].strip()}
             count += 1
 
     # Warn if numebr of filename blocks is not equal to NROTOR
@@ -199,7 +258,7 @@ def parse_bg(filename):
                  'SWEEPD': [nseg, float],
                  'TWSTGD': [nseg, float],
                  'ANHD': [nseg, float],
-                 'THIKND': [nseg+1, float]}
+                 'THCKND': [nseg+1, float]}
 
     # Parse multiple parameters
     for idx, line in enumerate(lines):
@@ -280,10 +339,6 @@ def parse_af(filename):
         _, am = (int(mpoints[:-2]), int(mpoints[-2:]))
         lines = lines[3:]
 
-        # NOTE: as a stopgap solution, Mach numbers will be assumed to be the same for
-        # Cl, Cd and Cm. Later on, PolarTable should be generalized to include all values.
-        # NOTE: similarly, alpha is assumed to be the same for Cl, Cd and Cm. This is most
-        # likely going to always be the case
         # NOTE: since CHARM files do not include structured Reynolds number information,
         # it will be set to 0.0
 
@@ -297,23 +352,284 @@ def parse_af(filename):
         # CD
         mach_cd = [float(item) for item in lines.pop(0)]
         cd_table = np.array(lines[0:ad]).astype(float)
+        alpha_cd = cd_table[:, 0]
         val_cd = cd_table[:, 1:]
         lines = lines[ad:]
 
         # CM
         mach_cm = [float(item) for item in lines.pop(0)]
         cm_table = np.array(lines[0:am]).astype(float)
+        alpha_cm = cm_table[:, 0]
         val_cm = cm_table[:, 1:]
         lines = lines[am:]
 
         # Build the polar object
         polar = PolarTable(name=name, desc=desc)
         for idx, m in enumerate(mach_cl):
-            polar.append_point(re=0.0, m=m, alpha=alpha_cl, cl=val_cl[:, idx],
-                               cd=val_cd[:, idx], cm=val_cm[:, idx])
+            polar.append_point(re=0.0, m=m, alpha=alpha_cl, cl=val_cl[:, idx])
+        for idx, m in enumerate(mach_cd):
+            polar.append_point(re=0.0, m=m, alpha=alpha_cd, cd=val_cd[:, idx])
+        for idx, m in enumerate(mach_cm):
+            polar.append_point(re=0.0, m=m, alpha=alpha_cm, cm=val_cm[:, idx])
         af_dict['SEC'][af] = {'name': name,
                               'rR': r_R[af],
                               'thick': thickd[af],
                               'polar': polar}
 
     return af_dict
+
+
+def mesh_charm(bg, af, rw):
+    """Create a Pointwise mesh object from CHARM case files.
+
+    Parameters
+    ----------
+    bg : dict
+        Blade geometry dictionary from CHARM.
+    af : dict
+        Airfoil dictionary from CHARM.
+    rw : dict
+        Rotor wake dictionary from CHARM.
+
+    Returns
+    -------
+    mesh : Pointwise
+        Pointwise mesh object.
+
+    """
+    R = sum(bg['SL'])+bg['CUTOUT']
+
+    if rw['OMEGA'] > 0.0:
+        if rw['IROTAT'] == -1:
+            mesh_mirror = MeshMirror(mesh_mirror=True)
+            mult = -1
+        else:
+            mesh_mirror = MeshMirror()
+            mult = 1
+        mesh_symmetry = MeshSymmetry()
+    else:
+        mesh_mirror = MeshMirror()
+        mesh_symmetry = MeshSymmetry(mesh_symmetry=True)
+        mult = 1
+
+    prop_data = {}
+    prop_data['af'] = {}
+    prop_data['af']['rR'] = np.array([af['SEC'][i]['rR'] for i in af['SEC'].keys()])
+    prop_data['af']['table'] = [af['SEC'][i]['polar'] for i in af['SEC'].keys()]
+    prop_data['chord'] = {}
+    prop_data['chord']['span'] = np.array(bg['SL'])
+    prop_data['chord']['sweep'] = np.array(bg['SWEEPD'])
+    prop_data['chord']['anhed'] = np.array(bg['ANHD'])
+    tmptwst = [bg['TWRD']]+bg['TWSTGD']
+    prop_data['chord']['twist'] = np.array([sum(tmptwst[0:i+1]) for i in range(len(tmptwst))])
+    prop_data['chord']['chord'] = np.array(bg['CHORD'])
+    prop_data['chord']['rR'] = [round(bg['CUTOUT']/R+sum(prop_data['chord']['span'][0:i]/R), 3) for i in range(len(prop_data['chord']['span'])+1)]
+
+    # Sectional properties
+    prop_data['interp'] = {'rR': sorted(set(prop_data['af']['rR']).union(set(prop_data['chord']['rR'])))}
+    prop_data['interp']['r'] = [r*R for r in prop_data['interp']['rR']]
+    prop_data['interp']['chord'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['chord'])
+    prop_data['interp']['twist'] = np.interp(prop_data['interp']['rR'], prop_data['chord']['rR'], prop_data['chord']['twist'])
+    prop_data['interp']['af'] = [prop_data['af']['table'][list(prop_data['af']['rR']).index(rr)] if rr in prop_data['af']['rR'] else 'interp' for rr in prop_data['interp']['rR']]
+    prop_data['interp']['af_name'] = [f"airfoil/{prop_data['interp']['af'][i].name}.c81" if prop_data['interp']['af'][i] != 'interp' else 'interp' for i in range(len(prop_data['interp']['af']))]
+
+    # Strip properties
+    prop_data['interp']['sweep'] = np.interp(prop_data['interp']['rR'][1:], prop_data['chord']['rR'][1:], prop_data['chord']['sweep'])
+    prop_data['interp']['sweep'] = np.insert(prop_data['interp']['sweep'], 0, 0.0)
+    prop_data['interp']['anhed'] = np.interp(prop_data['interp']['rR'][1:], prop_data['chord']['rR'][1:], prop_data['chord']['anhed'])
+    prop_data['interp']['anhed'] = np.insert(prop_data['interp']['anhed'], 0, 0.0)
+    prop_data['interp']['span'] = np.array([0.0] + [prop_data['interp']['r'][i]-prop_data['interp']['r'][i-1]
+                                                    for i in range(1, len(prop_data['interp']['r']))])
+
+    nsec = len(prop_data['interp']['af_name'])
+    airfoils = prop_data['interp']['af_name']
+
+    # Parse section positions
+    prop_data['interp']['dx'] = np.array([np.tan(np.deg2rad(prop_data['interp']['sweep'][i]))\
+                                          * mult * prop_data['interp']['span'][i]
+                                          for i in range(nsec)])
+    prop_data['interp']['dz'] = np.array([-np.tan(np.deg2rad(prop_data['interp']['anhed'][i]))\
+                                          * mult * prop_data['interp']['span'][i]
+                                          for i in range(nsec)])
+
+    nsec = len(prop_data['interp']['af_name'])
+    airfoils = prop_data['interp']['af_name']
+    positions = [[np.sum(prop_data['interp']['dx'][0:i+1]),
+                  mult*prop_data['interp']['r'][i],
+                  np.sum(prop_data['interp']['dz'][0:i+1])] for i in range(nsec)]
+
+    points = [Point(i, positions[i-1], prop_data['interp']['chord'][i-1], prop_data['interp']['twist'][i-1], airfoil_table=airfoils[i-1]) for i in range(1, nsec+1)]
+    lines = [Line('Straight', points[i], points[i+1], 1) for i in range(0, nsec-1)]
+    pointgeom = Pointwise(el_type='l',
+                          nelem_chord=1,
+                          points=points,
+                          lines=lines,
+                          type_chord='cosineLE',
+                          mesh_symmetry=mesh_symmetry,
+                          mesh_mirror=mesh_mirror)
+
+    return pointgeom
+
+
+def ref_charm(rw, tag='propsys', parent='ac'):
+    """Create a Reference object from CHARM case files.
+
+    Parameters
+    ----------
+    rw : dict
+        Rotor wake parameter dictionary.
+    tag : str, optional
+        Reference tag. Default: 'propsys'.
+    parent : str, optional
+        Parent tag. Default: 'ac'.
+
+    Returns
+    -------
+    ref : Reference
+        Reference object.
+
+    """
+    rpm = rw['OMEGA']*60/(2*np.pi)
+    origin = rw['XROTOR']
+    yaw = rw['TILT'][2]
+    pitch = rw['TILT'][1]
+    roll = rw['TILT'][0]
+    itilt = rw['ITILT']
+    nblades = rw['NBLADE']
+    irotat = rw['IROTAT']
+    coll = rw['COLL']
+
+    if itilt == 0 or itilt == 1:
+        order = 'xyz'
+    elif itilt == 2:
+        order = 'yxz'
+
+    if irotat == 1:
+        rot_axis = np.array([0.0, 0.0, 1.0])
+    elif irotat == -1:
+        rot_axis = np.array([0.0, 0.0, -1.0])
+
+    if nblades > 1:
+        compref = Reference(reference_tag=tag, parent_tag=parent,
+                            origin=np.array([0.0, 0.0, 0.0]),
+                            orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]),
+                            multiple=True,
+                            multiplicity=RotorMulti(n_blades=nblades, rot_axis=rot_axis,
+                                                    rot_rate=rpm/60*2*np.pi,
+                                                    dofs=[RotorDOF('Flap'),
+                                                          RotorDOF('Lag'),
+                                                          RotorDOF('Pitch',
+                                                                   collective=coll)]))
+    else:
+        if np.isclose(rpm, 0.0, atol=1e-6):
+            # Reduce CHARM yaw angle by 90 degrees for wings
+            yaw -= 90.0
+        compref = Reference(reference_tag=tag, parent_tag=parent,
+                            origin=np.array([0.0, 0.0, 0.0]),
+                            orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]))
+
+    compref.transform(origin, yaw, pitch, roll, order)
+
+    return compref
+
+
+def geom_charm(bg, af, rw, name):
+    """Create a Pointwise object and a Reference object from CHARM case files.
+
+    Parameters
+    ----------
+    bg : dict
+        Dictionary of blade geometry case file parameters.
+    af : dict
+        Dictionary of airfoil case file parameters.
+    rw : dict
+        Dictionary of rotor wake case file parameters.
+    name : str
+        Name of the Geom object.
+
+    Returns
+    -------
+    geom : Geom
+        Pointwise object.
+    ref : Reference
+        Reference object.
+
+    """
+    geom = mesh_charm(bg, af, rw)
+    ref = ref_charm(rw, tag=name)
+
+    return deepcopy(geom), deepcopy(ref)
+
+def opts_charm(main, rw, parts=200000, part_box_min=np.array([-15.0, -15.0, -15.0]),
+               part_box_max=np.array([15.0, 15.0, 15.0])):
+    """Create a Settings object from CHARM case files.
+
+    Parameters
+    ----------
+    main : dict
+        Dictionary of main case file parameters.
+    rw : dict
+        Dictionary of rotor wake case file parameters.
+    parts : int, optional
+        Number of wake particles to use. Default: 200000.
+    part_box_min : np.ndarray, optional
+        Minimum corner of the wake particle box. Default: np.array([-15.0, -15.0, -15.0]).
+    part_box_max : np.ndarray, optional
+        Maximum corner of the wake particle box. Default: np.array([15.0, 15.0, 15.0]).
+
+    Returns
+    -------
+    settings : Settings
+        Settings object.
+
+    """
+    rpm = rw['OMEGA']*60/(2*np.pi)
+    n_rev = main['NREV']
+    step = 360/main['NPSI']
+
+    if rpm == 0:
+        topts = TimeOpts(tstart=0.0, tend=1.0, timesteps=10)
+    else:
+        topts = TimeOpts.from_rpm(rpm=rpm, step=step, nrev=n_rev)
+
+    flopts = FlowOpts(u_inf=np.array([main['U'], -main['V'], main['W']]))
+    fmmopts = FMMOpts(fmm=True, box_length=10,
+                      n_box=[3, 3, 3], octree_origin=part_box_min,
+                      n_octree_levels=6,
+                      min_octree_part=5,
+                      multipole_degree=2)
+    wakeopts = WakeOpts(n_wake_particles=parts,
+                        particles_box_min=part_box_min,
+                        particles_box_max=part_box_max)
+    modelopts = ModelOpts(penetration_avoidance=True)
+    settings = Settings(time=topts, flow=flopts, fmm=fmmopts, wake=wakeopts,
+                        model=modelopts)
+
+    return settings
+
+
+def write_airfoils(main, target):
+    """Write the case airfoils to a target folder.
+
+    Parameters
+    ----------
+    main : str, Path
+        Path to the main file.
+    target : str, Path
+        Path to the target folder.
+
+    """
+    mainpath = Path(main)
+    root = mainpath.parent.absolute()
+    main = parse_main(mainpath)
+    afolder = Path(target)
+    afolder.mkdir(exist_ok=True, parents=True)
+    for rdata in main['ROTOR_FILES'].values():
+        af_path = root / Path(rdata['af'])
+        af = parse_af(af_path)
+        for foil in af['SEC'].values():
+            savename = afolder / Path(foil['name'] + '.c81')
+            if not Path(savename).exists():
+                foil['polar'].to_dust(savename, re=[0.0])
+            else:
+                pass

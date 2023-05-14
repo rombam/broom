@@ -3,7 +3,7 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable
+from .utils import Printable
 
 
 @dataclass
@@ -41,6 +41,8 @@ class Viz(PrintAnalysis):
         Format of the output file. Default is 'vtk'.
     wake : bool, optional
         If True, will include the wake in the postprocessing. Default is True.
+    separate_wake : bool, optional
+        If True, will output the wake and the body in separate files. Default is False.
     average : bool, optional
         If True, will average the results. Default is False.
     avg_res : int, optional
@@ -59,6 +61,7 @@ class Viz(PrintAnalysis):
     step_res: int = 1
     format: Literal['vtk', 'tecplot'] = 'vtk'
     wake: bool = True
+    separate_wake: bool = False
     average: bool = False
     avg_res: int = None
     component: Union[str, List[str]] = 'all'
@@ -169,3 +172,42 @@ class Post(Printable):
     basename: Union[str, Path]
     analyses: List[Union[Viz, Integral, Hinge, Probe, FlowField, Sectional,
                          Chordwise]]
+
+
+def basic_post(res, name):
+    """Create a basic postprocessing object for a DUST case.
+
+    Note
+    ----
+    Includes a visualization and integral analysis.
+
+    Parameters
+    ----------
+    res : tuple, list
+        (start_res, end_res) for the postprocessing object.
+    name : str
+        Name of the case.
+
+    """
+    viz_post = Viz(name='viz',
+                   start_res=res[0],
+                   end_res=res[1],
+                   variable=['vorticity', 'surface_velocity', 'velocity', 'pressure', 'cp', 'vorticity_vector'],
+                   step_res=1)
+
+    int_wind = Integral(name='int_wind',
+                        start_res=res[0],
+                        end_res=res[1],
+                        step_res=1)
+
+    int_ac = Integral(name='int_ac',
+                        start_res=res[0],
+                        end_res=res[1],
+                        step_res=1,
+                        reference_tag='ac')
+
+    post_obj = Post(data_basename=f'Output/{name}',
+                    basename=f'Postpro/{name}',
+                    analyses=[viz_post, int_wind, int_ac])
+
+    return post_obj

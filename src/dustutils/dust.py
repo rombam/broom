@@ -1,15 +1,17 @@
 import os
+import numpy as np
 
 from dataclasses import dataclass
 from typing import List, Union
 from pathlib import Path
+from copy import deepcopy
 
-from dustutils.utils import Printable
-from dustutils.mesh import CGNS, Parametric, Pointwise
-from dustutils.reference import Reference
-from dustutils.solver import Settings
-from dustutils.post import Post
-
+from .utils import Printable
+from .mesh import CGNS, Parametric, Pointwise
+from .reference import Reference
+from .solver import Settings
+from .post import Post, basic_post
+from .charm import parse_main, parse_af, parse_bg, parse_rw, geom_charm, opts_charm
 
 @dataclass
 class Geom(Printable):
@@ -51,7 +53,7 @@ class Geom(Printable):
                                 f'geo_file = {save_name}.in',
                                 f'ref_tag = {self.ref.reference_tag}'])
 
-        return {'pre': pre_string, 'geom': self.geom.to_fort(), 'ref': self.ref.to_fort()}
+        return {'pre': pre_string, 'geom': deepcopy(self.geom).to_fort(), 'ref': deepcopy(self.ref).to_fort()}
 
 
 @dataclass
@@ -69,6 +71,10 @@ class Case(Printable):
     settings : Settings
         Settings object containing the simulation settings and solver options.
         TODO: implement settings templates to make it easier for users.
+    references : List[Reference], optional
+        List of extra reference frames to be used in the simulation/postprocessing, apart
+        from the geometry-bound ones. This is useful for adding extra reference frames
+        to postprocess loads in.
     post : Post, optional
         [WIP] Postprocessing settings object.
 
@@ -76,7 +82,58 @@ class Case(Printable):
     name: str
     geoms: Union[Geom, List[Geom]]
     settings: Settings
+    references: Union[Reference, list[Reference]] = None
     post: Post = None
+
+    def __post_init__(self):
+        """Post-initialization method."""
+        if not isinstance(self.geoms, list):
+            self.geoms = [self.geoms]
+        if not isinstance(self.references, list):
+            self.references = [self.references]
+
+    @classmethod
+    def from_charm(cls, main, name):
+        """Create a DUST case from a CHARM case.
+
+        Notes
+        -----
+        By default, returns a case with lifting-line elements, n_part=200000, a bounding box between
+        (-15, -15, -15) and (15, 15, 15), and a timestep set by using the RPM and NPSI from the CHARM
+        case. The user can modify these settings by changing the case properties after creation.
+
+        Parameters
+        ----------
+        main : str, Path
+            Path to the CHARM main file.
+        name : str
+            Name of the case.
+
+        """
+        mainpath = Path(main)
+        root = mainpath.parent.absolute()
+        main = parse_main(mainpath)
+        geoms = []
+        omegas = {}
+        for rname, rdata in main['ROTOR_FILES'].items():
+            bg_path = root / Path(rdata['bg'])
+            af_path = root / Path(rdata['af'])
+            rw_path = root / Path(rdata['rw'])
+            bg = parse_bg(bg_path)
+            af = parse_af(af_path)
+            rw = parse_rw(rw_path)
+            omegas[rname] = rw['OMEGA']
+            geom, ref = geom_charm(bg, af, rw, rname)
+            geoms.append(Geom(rname, geom, ref))
+
+        rw = parse_rw(root / Path(main['ROTOR_FILES'][max(omegas, key=omegas.get)]['rw']))
+        flowsets = opts_charm(main, rw)
+        last_step = int((flowsets.time.tend-flowsets.time.tstart)/flowsets.time.dt)
+        post = basic_post(res=(1, last_step), name=name)
+        ac_ref = Reference(reference_tag='ac', parent_tag='0', origin=np.array([0.0, 0.0, 0.0]),
+                           orientation=np.array([-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0]))
+
+        return cls(name, geoms, flowsets, references=[ac_ref], post=post)
 
     def to_fort(self, geom_name=None, res_name=None, post_name=None):
         """Modified to_fort superclass method.
@@ -102,19 +159,26 @@ class Case(Printable):
             ings and postprocessing settings Fortran string representations.
 
         """
-        if not isinstance(self.geoms, list):
-            self.geoms = [self.geoms]
+        geom_fort = [geomobj.to_fort() for geomobj in deepcopy(self.geoms)]
+        geom_names = [geomobj.comp_name for geomobj in deepcopy(self.geoms)]
 
-        pre_str = '\n\n'.join([geomobj.to_fort()['pre'] for geomobj in self.geoms]
+        pre_str = '\n\n'.join([geomd['pre'] for geomd in geom_fort]
                               + [f'file_name = {geom_name}'])
-        geom_dict = {geomobj.comp_name: geomobj.geom.to_fort() for geomobj in self.geoms}
-        ref_str = '\n\n'.join([refobj.ref.to_fort() for refobj in self.geoms])
-        set_str = f'basename = {res_name}\n' + self.settings.to_fort()\
+        geom_dict = {geom_names[i]: geom_fort[i]['geom'] for i in range(len(geom_names))}
+
+        if self.references is not None:
+            ref_str = '\n\n'.join([refobj.to_fort() for refobj in deepcopy(self.references)])
+        else:
+            ref_str = ''
+
+        ref_str += '\n\n' + '\n\n'.join([geomd['ref'] for geomd in geom_fort])
+
+        set_str = f'basename = {res_name}\n' + deepcopy(self.settings).to_fort()\
             + f'\n\ngeometry_file = {geom_name}'\
             + '\nreference_file = references.in'
 
         if self.post:
-            post_str = self.post.to_fort()
+            post_str = deepcopy(self.post).to_fort()
         else:
             post_str = ''
 

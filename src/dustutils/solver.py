@@ -92,9 +92,16 @@ class TimeOpts(Printable):
     reset_time: bool = False
 
     def __post_init__(self):
-        if self.dt:
+        if self.dt is not None:
             print(f'{self.dt = } is specified, ignoring {self.timesteps = }')
             self.timesteps = None
+            if self.dt_out is None:
+                self.dt_out = self.dt
+        else:
+            if self.timesteps is None:
+                raise ValueError('Either dt or timesteps must be specified')
+            if self.dt_out is None:
+                self.dt_out = (self.tend - self.tstart)/self.timesteps
 
     @classmethod
     def from_rpm(cls, rpm, step, nrev, tstart=0.0, dt_out=None):

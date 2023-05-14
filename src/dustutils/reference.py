@@ -5,7 +5,7 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable
+from dustutils.utils import Printable, inplacify
 
 
 @dataclass
@@ -285,9 +285,106 @@ class Reference(Printable):
     multiplicity: RotorMulti = None
     motion: Motion = None
 
-    def _fort_strs(self, ignore=[], indent=0):
-        if not self.multiple:
-            ignore.extend(['multiplicity'])
-        if not self.moving:
-            ignore.extend(['motion'])
-        return super()._fort_strs(ignore=ignore, indent=indent)
+    @property
+    def attitude(self):
+        """Return the attitude matrix of the reference frame.
+
+        Returns
+        -------
+        np.ndarray
+            (3, 3) Attitude matrix. The columns are the i, j, k vectors of the reference frame.
+
+        """
+        return np.array(self.orientation).reshape((3, 3))
+
+    def _translate(self, r):
+        """Translate the reference frame.
+
+        Parameters
+        ----------
+        r : List[number], np.ndarray
+            (3, ) Translation vector with respect to the parent reference frame.
+
+        """
+        self.origin = np.array(self.origin) + r
+
+    def _rotate(self, R):
+        """Rotate the reference frame.
+
+        Parameters
+        ----------
+        R : np.ndarray
+            (3, 3) Rotation matrix.
+
+        """
+        self.orientation = np.dot(R, self.attitude).T.flatten()
+
+    def _rotzyx(self, yaw, pitch, roll, order='zyx'):
+        """Return the intrinsic rotation matrix for the given Tait-Bryan angles about axes
+        Z-Y-X (yaw-pitch-roll).
+
+        Parameters
+        ----------
+        yaw : number
+            Yaw angle. Unit: degrees.
+        pitch : number
+            Pitch angle. Unit: degrees.
+        roll : number
+            Roll angle. Unit: degrees.
+        order : str, optional
+            Order of the rotations. Default: 'zyx'. Must be a combination of 'x', 'y' and 'z'.
+
+        Returns
+        -------
+        np.ndarray
+            (3, 3) Rotation matrix.
+
+        """
+        order = order.lower().replace('x', '1').replace('y', '2').replace('z', '3')
+        order = [int(i)-1 for i in order]
+
+        yaw = np.deg2rad(yaw)
+        pitch = np.deg2rad(pitch)
+        roll = np.deg2rad(roll)
+
+        Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                       [np.sin(yaw), np.cos(yaw), 0],
+                       [0, 0, 1]])
+
+        Ry = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                       [0, 1, 0],
+                       [-np.sin(pitch), 0, np.cos(pitch)]])
+
+        Rx = np.array([[1, 0, 0],
+                       [0, np.cos(roll), -np.sin(roll)],
+                       [0, np.sin(roll), np.cos(roll)]])
+
+        mats = [Rx, Ry, Rz]
+
+        return np.dot(mats[order[0]], np.dot(mats[order[1]], mats[order[2]]))
+
+    @inplacify
+    def transform(self, r=np.zeros(3), yaw=0.0, pitch=0.0, roll=0.0, order='zyx'):
+        """Transform the reference frame. Translation is performed first, then rotation.
+        Rotation is performed about the Z-Y-X axes (yaw-pitch-roll).
+
+        Parameters
+        ----------
+        r : List[number], np.ndarray, optional
+            (3, ) Translation vector with respect to the parent reference frame.
+        yaw : number, optional
+            Yaw angle. Unit: degrees.
+        pitch : number, optional
+            Pitch angle. Unit: degrees.
+        roll : number, optional
+            Roll angle. Unit: degrees.
+        order : str, optional
+            Order of the rotations. Default: 'zyx'. Must be a combination of 'x', 'y' and 'z'.
+        inplace : bool, optional
+            If True, perform the transformation in place. If False, return a new object.
+            Default: True.
+
+        """
+        self._translate(r)
+        self._rotate(self._rotzyx(yaw, pitch, roll))
+        return self
