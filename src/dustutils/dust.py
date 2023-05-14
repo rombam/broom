@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+import pickle as pkl
 import numpy as np
 
 from dataclasses import dataclass
@@ -137,6 +138,19 @@ class Case(Printable):
 
         return cls(name, geoms, flowsets, references=[ac_ref], post=post)
 
+    @classmethod
+    def from_pickle(cls, filename):
+        """Create a DUST case from a pickle file.
+
+        Parameters
+        ----------
+        filename : str, Path
+            Path to the pickle file.
+
+        """
+        with open(filename, 'rb') as f:
+            return pkl.load(f)
+
     def to_fort(self, geom_name=None, res_name=None, post_name=None):
         """Modified to_fort superclass method.
 
@@ -187,6 +201,18 @@ class Case(Printable):
         return {'pre': pre_str, 'geom': geom_dict,
                 'ref': ref_str, 'settings': set_str,
                 'post': post_str}
+
+    def to_pickle(self, filename):
+        """Save the Case object as a pickle file.
+
+        Parameters
+        ----------
+        filename : str, Path
+            Path to the pickle file.
+
+        """
+        with open(filename, 'wb') as f:
+            pkl.dump(self, f)
 
     def write_case(self, folder, geom_name=None, res_name=None, post_name=None):
         """Write the DUST case files to the specified folder.
@@ -268,7 +294,6 @@ def dust_pre(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
 
         with con.stdout:
@@ -282,7 +307,6 @@ def dust_pre(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.DEVNULL,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
         con.wait()
 
@@ -310,7 +334,6 @@ def dust(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
 
         with con.stdout:
@@ -325,7 +348,6 @@ def dust(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.DEVNULL,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
         con.wait()
         print('Run finished in {:.2f} s\n'.format(time.time() - start_time))
@@ -354,7 +376,6 @@ def dust_post(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
 
         with con.stdout:
@@ -368,7 +389,6 @@ def dust_post(path, file=None, verbose=True):
         con = subprocess.Popen(cmd,
                                stdout=subprocess.DEVNULL,
                                stderr=subprocess.STDOUT,
-                               bufsize=1,
                                shell=True)
         con.wait()
 
