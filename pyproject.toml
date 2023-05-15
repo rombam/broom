@@ -87,10 +87,3 @@ exclude = [
 max-line-length = 90
 max-doc-length = 90
 count = true
-
-[testenv]
-extras = dev
-use_develop = true
-commands =
-    pytest
-"""
