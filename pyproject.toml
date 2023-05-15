@@ -46,8 +46,8 @@ dev = [
 
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta:__legacy__"
 
 
 [tool.pytest.ini_options]
