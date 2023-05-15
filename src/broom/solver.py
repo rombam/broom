@@ -5,7 +5,7 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable
+from broom.utils import Printable
 
 @dataclass
 class Gust(Printable):
