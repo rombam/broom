@@ -5,7 +5,7 @@ from typing import List, Union, Literal
 from pathlib import Path
 from copy import deepcopy
 
-from dustutils.utils import Printable, inplacify
+from broom.utils import Printable, inplacify
 
 
 @dataclass

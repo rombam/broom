@@ -5,7 +5,7 @@ from pathlib import Path
 from warnings import warn
 from copy import deepcopy
 from .polartable import PolarTable
-from .solver import Settings, TimeOpts, WakeOpts, FMMOpts, FlowOpts, ModelOpts
+from .settings import Settings, TimeOpts, WakeOpts, FMMOpts, FlowOpts, ModelOpts
 from .mesh import Point, Line, Pointwise, MeshMirror, MeshSymmetry
 from .reference import Reference, RotorMulti, RotorDOF
 

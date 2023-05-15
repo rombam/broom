@@ -1,0 +1,89 @@
+[project]
+name = "broom"
+version = "0.1.0"
+authors = [
+    {name="Roman Ballano", email = "roman.ballano@pipistrel-aircraft.com"}
+    ]
+description = "Utilities for working with the PoliMi DUST aerodynamics suite."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+    ]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib"
+    ]
+
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "coverage[toml]",
+    "pytest-cov",
+    "flake8",
+    "Flake8-pyproject",
+    "flake8-docstrings",
+    "nbval"
+    ]
+
+build = [
+    "build"
+    ]
+dev = [
+    "build",
+    "pytest",
+    "pytest-cov",
+    "coverage[toml]",
+    "flake8",
+    "Flake8-pyproject",
+    "flake8-docstrings",
+    "nbval"
+    ]
+
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.pytest.ini_options]
+console_output_style = "count"
+doctest_optionflags = "NUMBER"
+addopts = "--doctest-modules --ignore=sandbox --ignore=validation --ignore=examples --doctest-continue-on-failure --nbval --cov=aerotools"
+filterwarnings = [
+    "ignore:numpy.ufunc size changed:RuntimeWarning",
+    "ignore:There is no current event loop:DeprecationWarning",         # problem with pytest --nbval
+    "ignore:Proactor event loop does not implement:RuntimeWarning"      # problem with pytest --nbval
+    ]
+
+
+[tool.coverage.run]
+branch = false
+source = ["broom"]
+
+
+[tool.coverage.report]
+fail_under = 58
+
+
+[tool.flake8]
+ignore = ['E226', 'E266', 'E302', 'E305', 'E502']
+exclude = [
+    'doc',
+    'broom/data',
+    'examples',
+    'sandbox',
+    'test/test_data',
+    'validation',
+    '.tox',
+    '.pytest_cache',
+    '.vscode',
+    '.venv',
+]
+max-line-length = 90
+max-doc-length = 90
+count = true

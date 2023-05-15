@@ -12,7 +12,7 @@ from copy import deepcopy
 from .utils import Printable
 from .mesh import CGNS, Parametric, Pointwise
 from .reference import Reference
-from .solver import Settings
+from .settings import Settings
 from .post import Post, basic_post
 from .charm import parse_main, parse_af, parse_bg, parse_rw, geom_charm, opts_charm
 
